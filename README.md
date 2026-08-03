@@ -14,6 +14,15 @@ Python 环境桌面浏览器：双击即开，一眼看全 Windows 机器上所�
 - **虚拟环境删除**：三道检查（pyvenv.cfg 验证、符号链接拒绝、删后目录存在性验证），安全兜底
 - **SSE 实时进度**：扫描进度通过 Server-Sent Events 推送，前端实时渲染，无需轮询
 
+## 项目运行截图
+
+| | |
+|---|---|
+| [![主界面](docs/screenshots/01-overview.png)](#) | [![pip 缓存](docs/screenshots/02-pip-cache.png)](#) |
+| *Python 安装发现 — Swiss 设计系统，统计卡片 + 数据表格* | *pip 缓存柱状图 — 分类展示下载/编译/自检缓存占用* |
+| [![包列表](docs/screenshots/03-packages.png)](#) | [![安全卸载](docs/screenshots/04-uninstall-warning.png)](#) |
+| *包浏览器 — 安全等级标注，点击行展开* | *卸载警告弹窗 — 依赖冲突提示，需强制确认* |
+
 ## 技术栈
 
 Python 3.10+ 标准库（`http.server.ThreadingHTTPServer`）+ pywebview 桌面外壳 | 前端纯 HTML/CSS/JS，零框架，零构建工具 | Swiss 设计系统（Helvetica Neue + Swiss Red + 1px hairline grid）
