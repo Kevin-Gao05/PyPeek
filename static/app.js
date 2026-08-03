@@ -55,6 +55,7 @@ let previousTab = "pythons"; // 记录从哪个标签页跳转到包列表
 btnRefresh.addEventListener("click", () => {
   btnRefresh.disabled = true;
   showScanBar("正在启动扫描…", "");
+  hideAllEmptyStates();
 
   fetch("/api/scan")
     .then((r) => r.json())
@@ -502,6 +503,12 @@ function hideScanBar() {
   scanBar.hidden = true;
 }
 
+function hideAllEmptyStates() {
+  document.querySelectorAll(".empty-state").forEach((el) => {
+    el.hidden = true;
+  });
+}
+
 function updateScanProgress(progress, status, detail = "") {
   scanBar.hidden = false;
   document.getElementById("scan-status").textContent = status;
@@ -720,6 +727,7 @@ document.addEventListener("keydown", (e) => {
       deleteVenvModal.hidden = true;
       deleteVenvTarget = null;
     }
+    if (!aboutModal.hidden) aboutModal.hidden = true;
   }
 });
 
@@ -870,3 +878,47 @@ function showToast(message, type) {
     toast.hidden = true;
   }, 3000);
 }
+
+// ── 关于弹窗 ─────────────────────────────────────────────────────────
+
+const aboutModal = document.createElement("div");
+aboutModal.className = "modal-overlay";
+aboutModal.id = "about-modal";
+aboutModal.hidden = true;
+aboutModal.innerHTML = `
+  <div class="modal" style="width:560px">
+    <div class="modal__header">
+      <h3 class="modal__title">关于 PyPeek</h3>
+    </div>
+    <div class="modal__body" style="max-height:60vh;overflow-y:auto">
+      <p style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:12px">
+        Python 环境桌面浏览器 — 双击即开，一眼看全你 Windows 机器上的 Python 安装、虚拟环境和 pip 缓存。
+      </p>
+      <p style="margin-bottom:4px;font-weight:600;color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:0.5px">术语</p>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px">
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap">Python 安装</td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">系统上的 Python 解释器，可能来自 python.org、Microsoft Store、Conda</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap">虚拟环境</td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">通过 venv 创建的隔离环境，由 pyvenv.cfg 标识</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap">包</td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">可分发的 Python 代码单元，位于 site-packages 中</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap">pip 缓存</td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">下载的包文件的本地存储，跨安装复用</td></tr>
+      </table>
+      <p style="margin-bottom:4px;font-weight:600;color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:0.5px">卸载安全等级</p>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)"><span class="safety-badge safety-badge--safe">安全</span></td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">可卸载，无副作用</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)"><span class="safety-badge safety-badge--warning">警告</span></td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">其他包依赖此包，需强制确认</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)"><span class="safety-badge safety-badge--danger">危险</span></td><td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">系统关键包（pip / setuptools / wheel），禁止卸载</td></tr>
+      </table>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn--ghost" onclick="document.getElementById('about-modal').hidden=true">关闭</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(aboutModal);
+
+document.getElementById("btn-about").addEventListener("click", () => {
+  aboutModal.hidden = false;
+});
+
+aboutModal.addEventListener("click", (e) => {
+  if (e.target === aboutModal) aboutModal.hidden = true;
+});
