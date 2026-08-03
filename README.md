@@ -1,163 +1,112 @@
-# PyPeek -- Python 环境桌面浏览器
+# PyPeek
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey)](https://github.com/Kevin-Gao05/PyPeek)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/Kevin-Gao05/PyPeek)
-
-双击即开，一眼看全你 Windows 机器上所有的 Python 安装、虚拟环境和 pip 缓存 -- 安全清理不需要的，全程不用碰终端。
-
-## 功能
-
-- **Python 安装发现** -- 通过 PATH 和 Windows 注册表找到所有 Python 安装，识别来源：python.org、Microsoft Store 或 Conda。
-- **虚拟环境发现** -- 全盘递归搜索 `pyvenv.cfg` 文件。显示版本、大小、包数量、最后修改时间。检测重复环境。
-- **pip 缓存可视化** -- 以横向柱状图展示缓存分类，附带中文说明（"删了也不影响已安装的包"）。
-- **包浏览器** -- 点击任意 Python 或 venv 行展开包列表，显示名称、版本、大小、简介和卸载安全等级。
-- **安全卸载** -- 三级安全分级：
-  - **不可卸载**：pip、setuptools、wheel（Python 包管理基础设施，卸载会导致 pip 不可用）。按钮灰色禁用。
-  - **不建议卸载**：其他已安装包声称依赖此包。可查看依赖者列表，需显式确认"强制卸载"。
-  - **可以卸载**：无已知依赖。附带提醒：PyPeek 无法检测项目代码中的 import 依赖。
-- **删除虚拟环境** -- 直接从表格中删除不用的 venv。校验 pyvenv.cfg 存在、拒绝符号链接、删除后验证目标目录确实消失。
+双击即开，一眼看全你 Windows 机器上的 Python 安装、虚拟环境和 pip 缓存。安全清理不需要的，全程不用碰终端。
 
 ## 快速开始
 
 ```bat
-git clone https://github.com/Kevin-Gao05/PyPeek.git
+git clone git@github.com:Kevin-Gao05/PyPeek.git
 cd PyPeek
 start.bat
 ```
 
-> 需要 Windows 10 或 11，已安装 Python 3.10+。首次运行会自动安装 `pywebview`。
+需要 Windows 10 或 11，已安装 Python 3.10 以上。首次运行自动装 `pywebview`。
 
-如果想获得更丰富的测试数据（6 个不同场景的 venv），先运行：
+## 功能
 
-```bat
-setup_test_env.bat
-```
+打开后点右上角刷新，自动扫描本机，结果分四个标签页展示。
 
-这会创建覆盖所有安全等级的虚拟环境 -- 从空的（只有 pip）到依赖链复杂的（flask + requests），再到用于重复检测的双 venv 场景。
+### Python 安装
 
-## 界面
+列出本机所有 Python，从哪里装的、占多少空间、装了多少包。
 
-```
-+----------------------------------------------------------+
-|  PyPeek                                  [刷新] [关于]    |
-+----------------------------------------------------------+
-|  [=== 扫描进度条 ===]                                      |
-+----------------------------------------------------------+
-|  +----------+  +----------+  +----------+  +----------+  |
-|  |    2     |  |    5     |  |  340 MB  |  |   156    |  |
-|  | Pythons  |  |  Venvs   |  | Pip 缓存  |  |  总包数  |  |
-|  +----------+  +----------+  +----------+  +----------+  |
-+----------------------------------------------------------+
-|  [Python 安装] [虚拟环境] [pip 缓存] [包列表]              |
-+----------------------------------------------------------+
-|  版本     路径                    来源        包数   大小  |
-|  3.12.10  C:\...\python.exe       python.org   23  1.2G |
-|  3.11.5   C:\...\python.exe       ms-store      5    89M|
-+----------------------------------------------------------+
-```
+- PATH 和 Windows 注册表双重查找
+- 识别来源：python.org、Microsoft Store、Conda
+- 同版本出现多次会标重复
+
+### 虚拟环境
+
+全盘搜索 `pyvenv.cfg`，列出路径、Python 版本、大小、包数量、最后修改时间。
+
+- 自动跳过系统目录
+- 最后修改时间用相对格式（"今天""3 天前"）
+- 同目录下多个 venv 标重复
+
+### pip 缓存
+
+柱状图展示 pip 下载缓存，分类说明占用情况。
+
+- 下载缓存、本地编译缓存、自检记录分类显示
+- 每类有中文说明
+
+### 包列表
+
+点 Python 或 venv 行展开，看里面装了哪些包。
+
+- 包名、版本、大小、简介
+- 卸载安全等级标注
+
+## 安全卸载
+
+卸载前做检查，分三级：
+
+**不可卸载** — pip、setuptools、wheel 等包管理基础设施，卸载导致 pip 不可用。按钮禁用。
+
+**不建议卸载** — 其他包声称依赖它。弹窗列依赖者，需确认"强制卸载"。
+
+**可以卸载** — 无已知依赖。弹窗提醒：PyPeek 检测不到你项目代码里的 import，确认再卸。
+
+## 删除虚拟环境
+
+点删除前做三道检查：必须有 `pyvenv.cfg`、拒绝符号链接、删完验证目录确实消失。
 
 ## 项目结构
 
 ```
-PyPeek/
-  main.py                  入口：HTTP 服务 + pywebview 窗口
-  start.bat                Windows 双击启动脚本
-  setup_test_env.bat       测试环境一键搭建脚本
-  scanner/
-    pythons.py             Python 安装发现（PATH + 注册表）
-    venvs.py               虚拟环境发现（pyvenv.cfg 全盘搜索）
-    pip_cache.py           pip 缓存分析
-    site_packages.py       包详情、安全分级、卸载
-  server/
-    app.py                 HTTP 路由 + API 端点 + CORS
-    sse.py                 SSE 事件管理器（线程安全）
-  static/
-    index.html             单页骨架
-    style.css              暗色主题
-    app.js                 SSE 消费 + 标签页渲染 + 事件委托
-  tests/
-    setup_test_envs.py     测试 venv 工厂（6 种场景）
+main.py                  入口
+start.bat                Windows 双击启动
+scanner/
+  pythons.py             Python 发现（PATH + 注册表）
+  venvs.py               虚拟环境发现（pyvenv.cfg 搜索）
+  pip_cache.py           pip 缓存分析
+  site_packages.py       包详情、安全分级、卸载
+server/
+  app.py                 HTTP 路由、API、CORS
+  sse.py                 SSE 进度推送
+static/
+  index.html             页面骨架
+  style.css              暗色主题
+  app.js                 前端逻辑
 ```
 
-## 架构
+纯 Python 标准库，零 Web 框架依赖。前端原生 HTML/CSS/JS，暗色主题，无构建工具。扫描进度用 SSE 推送。
 
-PyPeek 是一个**纯本地桌面应用** -- 无 Web 框架、无浏览器外壳、无外部服务。
+## API
 
-```
-scanner/          (纯 Python，无 Web 依赖)
-    |
-    v
-server/app.py     (ThreadingHTTPServer + SSE + CORS)
-    |
-    +-- GET /api/health              健康检查
-    +-- GET /api/scan                触发完整扫描，返回 scan_id
-    +-- GET /api/scan/progress       SSE 事件流（实时进度）
-    +-- GET /api/packages            按 Python 路径获取包列表
-    +-- POST /api/uninstall/preview  卸载前安全检查（dry-run）
-    +-- POST /api/uninstall          执行卸载（带安全门控）
-    +-- POST /api/open-folder        在 Windows 资源管理器中打开路径
-    +-- POST /api/delete-venv        删除虚拟环境目录
-    |
-    v
-static/           (HTML/CSS/JS，暗色主题，零框架)
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/scan` | 触发扫描，返回 scan_id |
+| GET | `/api/scan/progress?scan_id=` | SSE 进度流 |
+| GET | `/api/packages?python_path=` | 包列表 |
+| POST | `/api/uninstall/preview` | 卸载前安全检查 |
+| POST | `/api/uninstall` | 执行卸载 |
+| POST | `/api/open-folder` | 资源管理器打开路径 |
+| POST | `/api/delete-venv` | 删除虚拟环境 |
 
-**关键设计决策：**
+## 安全措施
 
-- 零 Web 框架依赖 -- HTTP 服务用 Python 标准库 `ThreadingHTTPServer`。
-- SSE（Server-Sent Events）推送扫描进度 -- 不用 WebSocket，不用轮询。
-- 单个 `document` 级事件委托 -- 所有按钮点击通过一个处理器分发，避免事件竞态。
-- 线程安全扫描锁 -- `threading.Lock` 防止并发扫描（返回 HTTP 429）。
-- CORS 白名单 -- 仅允许 `127.0.0.1` 和 `localhost` 来源。
+- 所有传给 pip 的包名前加 `--` 分隔符，防参数注入
+- `python_path` 做可执行文件名校验（白名单）
+- 删除 venv 前检查符号链接、验证 pyvenv.cfg、确认目录删干净
+- 静态文件路径穿越防护
+- 扫描并发锁，同一时间只允许一个扫描
+- CORS 仅允许 127.0.0.1 和 localhost
 
-## 安全设计
+## 参与
 
-包卸载经过三级检查：
-
-| 等级 | 判断依据 | 操作 |
-|------|---------|------|
-| 不可卸载 | 包名为 `pip`、`setuptools`、`wheel` 或 `pkg_resources` | 按钮禁用，无法卸载 |
-| 不建议卸载 | `pip show` 返回非空 `Required-by` 列表 | 显示依赖包列表，需显式"强制卸载" |
-| 可以卸载 | 无已知依赖 | 正常确认弹窗，附带项目级 import 提醒 |
-
-其他保护措施：
-- 所有传给 pip 的包名前加 `--` 分隔符，防止参数注入。
-- `python_path` 参数校验：仅允许合法的 Python 可执行文件名（如 `python.exe`、`python3.12`）。
-- `delete-venv` 拒绝符号链接，要求 `pyvenv.cfg` 存在，删除后验证目录确实消失。
-- `static/` 目录文件服务经过路径穿越校验。
-
-## 开发
-
-### 无 GUI 模式
-
-```bash
-python3 tests/server_only.py
-# 浏览器打开 http://127.0.0.1:8080
-```
-
-### 跑测试
-
-```bash
-python3 tests/test_runner.py
-```
-
-测试套件覆盖 40 项断言，包括健康检查、静态文件、扫描触发、包浏览、安全分级、依赖冲突、venv 删除、并发控制、CORS 预检。
-
-### Docker 测试
-
-```bash
-docker build -t pypeek-test .
-docker run --rm pypeek-test
-```
-
-Docker 能测什么、Windows 实机必须测什么，详见 `.claude/test-coverage-matrix.md`。
-
-## 参与贡献
-
-见 [CONTRIBUTING.md](CONTRIBUTING.md) 了解分支规范、提交格式、代码风格和 PR 流程。
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
-MIT -- 详见 [LICENSE](LICENSE)。
+MIT
