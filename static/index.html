@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyPeek — Python 环境浏览器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  顶栏                                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <header class="header">
+    <h1 class="header__title"> PyPeek</h1>
+    <div class="header__actions">
+      <button class="btn btn--ghost" id="btn-refresh" title="重新扫描">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M13.65 2.35A7.96 7.96 0 0 0 8 0a8 8 0 1 0 8 8v-1h-1.5v1A6.5 6.5 0 1 1 8 1.5a6.47 6.47 0 0 1 4.59 1.91L10.5 5.5H16V0l-2.35 2.35z" fill="currentColor"/>
+        </svg>
+      </button>
+      <button class="btn btn--ghost" id="btn-about">关于</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  扫描进度条                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="scan-bar" id="scan-bar" hidden>
+    <div class="scan-bar__info">
+      <span class="scan-bar__status" id="scan-status">正在初始化扫描…</span>
+      <span class="scan-bar__detail" id="scan-detail"></span>
+    </div>
+    <div class="scan-bar__track">
+      <div class="scan-bar__fill" id="scan-fill" style="width: 0%"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  统计卡片                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="stat-cards" id="stat-cards">
+    <div class="stat-card" data-tab="pythons">
+      <div class="stat-card__value" id="stat-pythons">—</div>
+      <div class="stat-card__label">已发现 Python</div>
+    </div>
+    <div class="stat-card" data-tab="venvs">
+      <div class="stat-card__value" id="stat-venvs">—</div>
+      <div class="stat-card__label">已发现虚拟环境</div>
+    </div>
+    <div class="stat-card" data-tab="pip-cache">
+      <div class="stat-card__value" id="stat-pip-cache">—</div>
+      <div class="stat-card__label">pip 缓存</div>
+    </div>
+    <div class="stat-card" data-tab="packages">
+      <div class="stat-card__value" id="stat-packages">—</div>
+      <div class="stat-card__label">总计包数量</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  标签页栏                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <nav class="tab-bar" id="tab-bar">
+    <button class="tab-bar__tab tab-bar__tab--active" data-tab="pythons">
+      Python 安装
+    </button>
+    <button class="tab-bar__tab" data-tab="venvs">
+      虚拟环境
+    </button>
+    <button class="tab-bar__tab" data-tab="pip-cache">
+      pip 缓存
+    </button>
+    <button class="tab-bar__tab" data-tab="packages">
+      包列表
+    </button>
+    <button class="tab-bar__tab tab-bar__tab--hidden" data-tab="conda" id="tab-conda">
+      Conda
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  主内容区域                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <main class="content" id="content">
+
+    <!-- Python 安装标签页 -->
+    <section class="tab-panel" id="panel-pythons">
+      <div class="empty-state">
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">点击<strong>刷新</strong>来发现本机的 Python 安装。</p>
+        <p class="empty-state__hint">PyPeek 会扫描 PATH、Windows 注册表和文件系统。</p>
+      </div>
+    </section>
+
+    <!-- 虚拟环境标签页 -->
+    <section class="tab-panel" id="panel-venvs" hidden>
+      <div class="empty-state">
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">扫描完成后，虚拟环境将显示在这里。</p>
+        <p class="empty-state__hint">PyPeek 会搜索所有盘符下的 <code>pyvenv.cfg</code> 文件。</p>
+      </div>
+    </section>
+
+    <!-- pip 缓存标签页 -->
+    <section class="tab-panel" id="panel-pip-cache" hidden>
+      <div class="empty-state">
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">扫描完成后，pip 缓存详情将显示在这里。</p>
+        <p class="empty-state__hint">看看你下载的包占用了多少磁盘空间。</p>
+      </div>
+    </section>
+
+    <!-- 包列表标签页 -->
+    <section class="tab-panel" id="panel-packages" hidden>
+      <div id="packages-empty" class="empty-state">
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">点击左侧 Python 安装或虚拟环境中的任意行来浏览包。</p>
+        <p class="empty-state__hint">在「Python 安装」或「虚拟环境」标签页中点击某一行即可查看其包列表。</p>
+      </div>
+      <div id="packages-content" hidden>
+        <div class="packages-header">
+          <button class="btn btn--ghost" id="btn-packages-back" title="返回上一个标签页">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10.5 3L5.5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            返回
+          </button>
+          <div class="packages-header__info">
+            <span class="packages-header__label" id="packages-label"></span>
+            <code class="packages-header__path" id="packages-path"></code>
+          </div>
+          <button class="btn btn--ghost btn--sm btn-open-folder" id="btn-packages-open-folder" title="在文件管理器中打开"> 打开文件夹</button>
+        </div>
+        <div id="packages-table-container"></div>
+        <div id="packages-stale" hidden style="text-align:center;padding:40px">
+          <div style="font-size:48px;margin-bottom:12px"></div>
+          <p style="color:var(--text)">此环境目录已不存在</p>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:4px">该虚拟环境可能已被手动删除或移动。</p>
+          <button class="btn btn--danger" id="btn-remove-stale" style="margin-top:16px">从列表中移除</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Conda 标签页（默认隐藏） -->
+    <section class="tab-panel" id="panel-conda" hidden>
+      <div class="empty-state">
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">当前系统未检测到 Conda。</p>
+        <p class="empty-state__hint">如果你安装了 conda，重新扫描后即可在此查看环境。</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  卸载确认弹窗                                                  -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="uninstall-modal" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <span class="modal__icon" id="modal-icon"></span>
+        <h3 class="modal__title" id="modal-title">确认卸载</h3>
+      </div>
+      <div class="modal__body" id="modal-body"></div>
+      <div class="modal__footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  Toast 提示                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

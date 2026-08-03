@@ -1,0 +1,4 @@
+# PyPeek 依赖
+# 纯 Python 标准库 + pywebview 桌面外壳
+# 不依赖 Flask、FastAPI、Jinja2 等第三方 Web 框架
+pywebview

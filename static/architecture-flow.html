@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyPeek 架构流程图</title>
+<style>
+  :root {
+    --bg: #0F172A; --surface: #1E293B; --border: #334155;
+    --text: #E2E8F0; --text-muted: #94A3B8;
+    --accent: #7C3AED; --green: #22C55E; --yellow: #EAB308;
+    --red: #EF4444; --orange: #F97316; --blue: #3B82F6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    padding: 40px; display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  h2 { font-size: 16px; margin: 48px 0 20px; color: var(--accent); }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 36px; }
+
+  /* ── Legend ────────────────────────────────────── */
+  .legend { display: flex; gap: 20px; margin-bottom: 32px; font-size: 12px; color: var(--text-muted); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 2px; }
+  .legend .dot--done { background: var(--green); }
+  .legend .dot--stub { background: var(--text-muted); }
+
+  /* ── Flow ──────────────────────────────────────── */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .node {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 24px;
+    min-width: 280px; text-align: center;
+  }
+  .node--start  { border-color: var(--green);  background: #1a2e1a; }
+  .node--engine { border-color: var(--accent);  background: #1e1a2e; }
+  .node--server { border-color: var(--orange);  background: #2e201a; }
+  .node--done   { border-color: var(--green);  background: #1a2e20; }
+  .node--stub   { border-color: var(--text-muted); opacity: 0.7; }
+  .node--ui     { border-color: var(--blue);   background: #1a2233; }
+  .node--data   { border-color: var(--yellow);  background: #2e2a1a; }
+
+  .node__title { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .node__file { font-family: "Cascadia Code", "Fira Code", monospace; font-size: 11px; color: var(--text-muted); }
+  .node__desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+
+  /* ── Arrows ────────────────────────────────────── */
+  .arrow {
+    display: flex; flex-direction: column; align-items: center;
+    color: var(--text-muted); font-size: 11px; padding: 4px 0;
+  }
+  .arrow__line { width: 2px; height: 20px; background: var(--border); }
+  .arrow__head { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--border); }
+  .arrow__label { margin-top: 2px; }
+
+  /* ── Branch ────────────────────────────────────── */
+  .branch { display: flex; gap: 48px; align-items: flex-start; position: relative; }
+  .branch::before {
+    content: ''; position: absolute; top: 0; left: 50%;
+    width: calc(100% - 48px); height: 2px;
+    background: var(--border); transform: translateX(-50%);
+  }
+  .branch-col { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .branch-col > .arrow:first-child { padding-top: 24px; }
+
+  /* ── Tables ────────────────────────────────────── */
+  .routes, .data-table {
+    margin-top: 0; border-collapse: collapse; font-size: 13px;
+  }
+  .routes th, .data-table th {
+    text-align: left; padding: 8px 16px; background: var(--surface);
+    color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border);
+  }
+  .routes td, .data-table td {
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
+    font-family: "Cascadia Code", "Fira Code", monospace; font-size: 12px;
+  }
+  .routes .method { color: var(--accent); }
+  .routes .path { color: var(--text); }
+  .status-200 { color: var(--green); }
+  .status-501 { color: var(--text-muted); }
+
+  .badge {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge--done { background: #166534; color: var(--green); }
+  .badge--stub { background: #1e293b; color: var(--text-muted); }
+
+  /* ── Data flow diagram ─────────────────────────── */
+  .dataflow {
+    display: flex; align-items: center; gap: 20px;
+    flex-wrap: wrap; justify-content: center; margin-top: 8px;
+  }
+  .dataflow-step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 18px; text-align: center;
+    font-size: 12px; min-width: 140px;
+  }
+  .dataflow-step .num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; margin-bottom: 4px;
+  }
+  .dataflow-arrow { color: var(--text-muted); font-size: 18px; }
+</style>
+</head>
+<body>
+
+<h1> PyPeek 架构流程图</h1>
+<p class="subtitle">Phase 1 脚手架 + Phase 2 Python 发现 — 已完成</p>
+
+<div class="legend">
+  <span><span class="dot dot--done"></span> 已实现</span>
+  <span><span class="dot dot--stub"></span> 桩代码 / 待实现</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  SECTION 1: 启动流程                                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>一、启动流程</h2>
+
+<div class="flow">
+
+  <div class="node node--start">
+    <div class="node__title">🖱 用户双击 start.bat</div>
+    <div class="node__file">start.bat</div>
+    <div class="node__desc">检查 Python → pip install -r requirements.txt → python main.py</div>
+  </div>
+
+  <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div><div class="arrow__label">python main.py</div></div>
+
+  <div class="node node--start">
+    <div class="node__title">🚀 main() 入口</div>
+    <div class="node__file">main.py:16</div>
+    <div class="node__desc">host=127.0.0.1 port=8080</div>
+  </div>
+
+  <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+  <div class="node node--engine" style="border-style: dashed;">
+    <div class="node__title">⚡ 主线程分叉</div>
+    <div class="node__desc">
+      <strong>守护线程</strong>：app.run() 启动 HTTP 服务<br>
+      <strong>主线程</strong>：webview.create_window() 打开原生窗口
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+  <div class="branch">
+    <!-- 左：Server -->
+    <div class="branch-col">
+      <div class="arrow"><div class="arrow__line" style="height:16px"></div><div class="arrow__head"></div></div>
+
+      <div class="node node--server">
+        <div class="node__title"> ThreadingHTTPServer</div>
+        <div class="node__file">server/app.py — Server.run()</div>
+        <div class="node__desc">监听 127.0.0.1:8080，多线程处理请求</div>
+      </div>
+
+      <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+      <div class="node node--server">
+        <div class="node__title"> RequestHandler 路由表</div>
+        <div class="node__file">server/app.py — do_GET() / do_POST()</div>
+      </div>
+
+      <table class="routes" style="margin-top:8px">
+        <tr><th>方法</th><th>路径</th><th>状态</th><th>说明</th></tr>
+        <tr><td class="method">GET</td><td class="path">/api/health</td><td class="status-200">200</td><td>健康检查</td></tr>
+        <tr><td class="method">GET</td><td class="path">/api/scan</td><td class="status-200">200</td><td>触发扫描 → 返回 scan_id</td></tr>
+        <tr><td class="method">GET</td><td class="path">/api/scan/progress</td><td class="status-200">200</td><td>SSE 事件流</td></tr>
+        <tr><td class="method">POST</td><td class="path">/api/uninstall</td><td class="status-501">501</td><td>卸载包（Phase 5）</td></tr>
+        <tr><td class="method">GET</td><td class="path">/ → /index.html</td><td class="status-200">200</td><td>前端骨架页面</td></tr>
+        <tr><td class="method">GET</td><td class="path">/style.css</td><td class="status-200">200</td><td>暗色主题样式</td></tr>
+        <tr><td class="method">GET</td><td class="path">/app.js</td><td class="status-200">200</td><td>前端逻辑 + SSE 消费者</td></tr>
+      </table>
+    </div>
+
+    <!-- 右：Webview -->
+    <div class="branch-col">
+      <div class="arrow"><div class="arrow__line" style="height:16px"></div><div class="arrow__head"></div></div>
+
+      <div class="node node--ui">
+        <div class="node__title">🪟 pywebview 原生窗口</div>
+        <div class="node__file">main.py — webview.create_window()</div>
+        <div class="node__desc">标题 "PyPeek" | 1200×800 | 最小 900×600</div>
+      </div>
+
+      <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+      <div class="node node--ui">
+        <div class="node__title">🌐 加载 http://127.0.0.1:8080</div>
+        <div class="node__desc">浏览器引擎请求 → _serve_static → index.html</div>
+      </div>
+
+      <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+      <div class="node node--ui">
+        <div class="node__title">📄 index.html 骨架 DOM</div>
+        <div class="node__file">static/index.html</div>
+        <div class="node__desc">
+          顶栏（刷新 + 关于）<br>
+          扫描进度条（默认隐藏）<br>
+          4 张统计卡片<br>
+          5 个标签页栏按钮
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+      <div class="branch">
+        <div class="branch-col">
+          <div class="arrow"><div class="arrow__line" style="height:16px"></div><div class="arrow__head"></div></div>
+          <div class="node node--ui">
+            <div class="node__title"> style.css</div>
+            <div class="node__desc">暗色主题 CSS 变量<br>表格、徽章、进度条样式</div>
+          </div>
+        </div>
+        <div class="branch-col">
+          <div class="arrow"><div class="arrow__line" style="height:16px"></div><div class="arrow__head"></div></div>
+          <div class="node node--ui">
+            <div class="node__title">⚙ app.js</div>
+            <div class="node__desc">标签页切换<br>
+              EventSource SSE 消费者<br>
+              renderPythonsTable() 动态建表</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  SECTION 2: 扫描数据流                                        -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>二、扫描数据流（点击刷新 → 表格渲染）</h2>
+
+<div class="dataflow">
+  <div class="dataflow-step">
+    <div class="num">1</div>
+    <strong>点击刷新</strong><br>
+    <span style="color:var(--text-muted)">app.js:btnRefresh</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">2</div>
+    <strong>fetch /api/scan</strong><br>
+    <span style="color:var(--text-muted)">HTTP GET</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">3</div>
+    <strong>sse_manager</strong><br>
+    <span style="color:var(--text-muted)">create_scan() → scan_id</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">4</div>
+    <strong>后台线程</strong><br>
+    <span style="color:var(--text-muted)">discover_pythons()</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">5</div>
+    <strong>扫描数据源</strong><br>
+    <span style="color:var(--text-muted); font-size:11px">PATH · 注册表 · pip list · 文件大小</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">6</div>
+    <strong>SSE push</strong><br>
+    <span style="color:var(--text-muted)">phase_update / scan_complete</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">7</div>
+    <strong>EventSource</strong><br>
+    <span style="color:var(--text-muted)">前端接收事件</span>
+  </div>
+  <span class="dataflow-arrow">→</span>
+
+  <div class="dataflow-step">
+    <div class="num">8</div>
+    <strong>渲染表格</strong><br>
+    <span style="color:var(--text-muted)">renderPythonsTable()</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  SECTION 3: 模块状态                                        -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>三、模块完成状态</h2>
+
+<div class="flow">
+  <div class="node node--done">
+    <div class="node__title"> scanner/pythons.py </div>
+    <div class="node__file">discover_pythons(on_progress)</div>
+    <div class="node__desc">
+      PATH 查找 · Windows 注册表 · 版本提取 · pip list 包计数 · site-packages 大小 · 来源识别
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+  <div class="node node--done">
+    <div class="node__title">📡 server/sse.py </div>
+    <div class="node__file">SSEManager — 线程安全事件队列</div>
+    <div class="node__desc">create_scan() → push(event, data) → subscribe(scan_id) 生成器 → finish_scan() 哨兵</div>
+  </div>
+
+  <div class="arrow"><div class="arrow__line"></div><div class="arrow__head"></div></div>
+
+  <div class="node node--stub">
+    <div class="node__title"> 其余扫描器（待实现）</div>
+    <div class="node__file">scanner/</div>
+    <div class="node__desc">
+      <span class="badge badge--stub"></span> venvs.py &nbsp;
+      <span class="badge badge--stub"></span> pip_cache.py &nbsp;
+      <span class="badge badge--stub"></span> site_packages.py &nbsp;
+      <span class="badge badge--stub"></span> conda.py
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 48px; color: var(--text-muted); font-size: 12px;">
+   Phase 1+2 完成 &nbsp;|&nbsp;  Phase 3–6 待实现
+</p>
+
+</body>
+</html>
