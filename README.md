@@ -16,12 +16,19 @@ Python 环境桌面浏览器：双击即开，一眼看全 Windows 机器上所�
 
 ## 项目运行截图
 
-| | |
-|---|---|
-| [![主界面](docs/screenshots/01-overview.png)](#) | [![pip 缓存](docs/screenshots/02-pip-cache.png)](#) |
-| *Python 安装发现 — Swiss 设计系统，统计卡片 + 数据表格* | *pip 缓存柱状图 — 分类展示下载/编译/自检缓存占用* |
-| [![包列表](docs/screenshots/03-packages.png)](#) | [![安全卸载](docs/screenshots/04-uninstall-warning.png)](#) |
-| *包浏览器 — 安全等级标注，点击行展开* | *卸载警告弹窗 — 依赖冲突提示，需强制确认* |
+> 当前版本仅支持 Windows 平台及 pip 包管理。
+
+![主界面](docs/screenshots/01-overview.png)
+*Python 安装发现 — Swiss 设计系统，统计卡片 + 数据表格*
+
+![pip 缓存](docs/screenshots/02-pip-cache.png)
+*pip 缓存柱状图 — 分类展示下载/编译/自检缓存占用*
+
+![包列表](docs/screenshots/03-packages.png)
+*包浏览器 — 安全等级标注，点击行展开*
+
+![安全卸载](docs/screenshots/04-uninstall-warning.png)
+*卸载警告弹窗 — 依赖冲突提示，需强制确认*
 
 ## 技术栈
 
