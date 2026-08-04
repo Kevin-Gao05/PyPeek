@@ -6,7 +6,6 @@ PyPeek — Python 环境桌面浏览器
 
 import threading
 import sys
-
 import webview
 
 from server.app import create_app

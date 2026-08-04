@@ -11,6 +11,23 @@ const content = document.getElementById("content");
 const btnRefresh = document.getElementById("btn-refresh");
 const scanBar = document.getElementById("scan-bar");
 
+// ── 启动时加载缓存数据 ─────────────────────────────────────────────
+
+(async function loadCachedData() {
+  try {
+    const resp = await fetch("/api/cache");
+    const result = await resp.json();
+    if (result.cached && result.data) {
+      renderScanResults(result.data);
+    } else {
+      // 首次启动 — 显示欢迎弹窗
+      document.getElementById("welcome-modal").hidden = false;
+    }
+  } catch (err) {
+    // 静默回退 — 缓存不可用时展示空状态
+  }
+})();
+
 // ── 标签页切换 ─────────────────────────────────────────────────────
 
 tabBar.addEventListener("click", (e) => {
@@ -22,6 +39,25 @@ tabBar.addEventListener("click", (e) => {
   tab.classList.add("tab-bar__tab--active");
   content.querySelectorAll(".tab-panel").forEach((panel) =>
     panel.hidden = panel.id !== `panel-${tabName}`);
+});
+
+// ── 欢迎弹窗按钮 ───────────────────────────────────────────────────
+
+const welcomeModal = document.getElementById("welcome-modal");
+
+document.getElementById("btn-welcome-scan").addEventListener("click", () => {
+  welcomeModal.hidden = true;
+  // 触发与刷新按钮相同的扫描流程
+  btnRefresh.click();
+});
+
+document.getElementById("btn-welcome-skip").addEventListener("click", () => {
+  welcomeModal.hidden = true;
+});
+
+// 点击遮罩关闭欢迎弹窗
+welcomeModal.addEventListener("click", (e) => {
+  if (e.target === welcomeModal) welcomeModal.hidden = true;
 });
 
 // ── 统计卡片点击 → 跳转对应标签页 ──────────────────────────────────
@@ -55,6 +91,7 @@ let previousTab = "pythons"; // 记录从哪个标签页跳转到包列表
 btnRefresh.addEventListener("click", () => {
   btnRefresh.disabled = true;
   showScanBar("正在启动扫描…", "");
+  hideScanSummary();
   hideAllEmptyStates();
 
   fetch("/api/scan")
@@ -69,6 +106,33 @@ btnRefresh.addEventListener("click", () => {
       console.error("扫描启动失败:", err);
     });
 });
+
+// ── 共享渲染函数（缓存加载 + scan_complete 复用）──────────────────
+
+function renderScanResults(data) {
+  if (data.pythons) {
+    renderPythonsTable(data.pythons);
+    updateStatCard("pythons", data.pythons.length);
+  }
+  if (data.venvs) {
+    renderVenvsTable(data.venvs);
+    updateStatCard("venvs", data.venvs.length);
+  }
+  if (data.pip_cache) {
+    renderPipCacheTab(data.pip_cache);
+    updateStatCard("pip-cache", formatSize(data.pip_cache.total_size_mb));
+  }
+
+  // 汇总包数量（Python 安装 + venvs）
+  let totalPkgs = 0;
+  if (data.pythons) {
+    totalPkgs += data.pythons.reduce((s, py) => s + (py.package_count || 0), 0);
+  }
+  if (data.venvs) {
+    totalPkgs += data.venvs.reduce((s, v) => s + (v.package_count || 0), 0);
+  }
+  updateStatCard("packages", totalPkgs);
+}
 
 // ── SSE 连接 ───────────────────────────────────────────────────────
 
@@ -97,28 +161,12 @@ function connectSSE(scanId) {
     const data = JSON.parse(e.data);
     source.close();
 
-    if (data.pythons) {
-      renderPythonsTable(data.pythons);
-      updateStatCard("pythons", data.pythons.length);
-    }
-    if (data.venvs) {
-      renderVenvsTable(data.venvs);
-      updateStatCard("venvs", data.venvs.length);
-    }
-    if (data.pip_cache) {
-      renderPipCacheTab(data.pip_cache);
-      updateStatCard("pip-cache", formatSize(data.pip_cache.total_size_mb));
-    }
+    renderScanResults(data);
 
-    // 汇总包数量（Python 安装 + venvs）
-    let totalPkgs = 0;
-    if (data.pythons) {
-      totalPkgs += data.pythons.reduce((s, py) => s + (py.package_count || 0), 0);
+    // 显示扫描摘要
+    if (data.scan_summary) {
+      showScanSummary(data.scan_summary);
     }
-    if (data.venvs) {
-      totalPkgs += data.venvs.reduce((s, v) => s + (v.package_count || 0), 0);
-    }
-    updateStatCard("packages", totalPkgs);
 
     updateScanProgress(1.0, "扫描完成", "");
     setTimeout(hideScanBar, 1500);
@@ -464,7 +512,11 @@ function renderPipCacheTab(pipCache) {
     <div class="cache-chart">
       <div class="cache-chart__summary">
         <span>缓存路径: <code>${escapeHtml(pipCache.path)}</code></span>
-        <span style="font-weight:700;color:var(--accent)">总计 ${formatSize(pipCache.total_size_mb)}</span>
+        <span style="display:flex;align-items:center;gap:12px">
+          <span style="font-weight:700;color:var(--accent)">总计 ${formatSize(pipCache.total_size_mb)}</span>
+          <button class="btn btn--danger btn--sm btn-clear-all-cache"
+            ${pipCache.total_size_mb === 0 ? "disabled" : ""}>清理全部缓存</button>
+        </span>
       </div>
       <div class="cache-chart__bars">
         ${pipCache.categories
@@ -473,7 +525,13 @@ function renderPipCacheTab(pipCache) {
           <div class="cache-bar-row">
             <div class="cache-bar-row__label">
               <span>${escapeHtml(c.name)}</span>
-              <span style="color:var(--text-muted);font-size:11px">${formatSize(c.size_mb)} · ${c.file_count} 个文件</span>
+              <span style="display:flex;align-items:center;gap:10px">
+                <span style="color:var(--text-muted);font-size:11px">${formatSize(c.size_mb)} · ${c.file_count} 个文件</span>
+                <button class="btn btn--ghost btn--sm btn-clear-cache"
+                  data-category-path="${escapeHtml(c.path)}"
+                  data-category-name="${escapeHtml(c.name)}"
+                  ${c.size_mb === 0 ? "disabled" : ""}>清理</button>
+              </span>
             </div>
             <div class="cache-bar-row__track">
               <div class="cache-bar-row__fill" style="width:${Math.round((c.size_mb / maxSize) * 100)}%"></div>
@@ -501,6 +559,22 @@ function showScanBar(status, detail) {
 
 function hideScanBar() {
   scanBar.hidden = true;
+}
+
+function showScanSummary(summary) {
+  const el = document.getElementById("scan-summary");
+  document.getElementById("summary-drives").textContent =
+    (summary.drives_scanned && summary.drives_scanned.length)
+      ? summary.drives_scanned.join(" ") : "—";
+  document.getElementById("summary-files").textContent =
+    summary.files_checked ?? "—";
+  document.getElementById("summary-duration").textContent =
+    summary.duration_seconds ?? "—";
+  el.hidden = false;
+}
+
+function hideScanSummary() {
+  document.getElementById("scan-summary").hidden = true;
 }
 
 function hideAllEmptyStates() {
@@ -670,6 +744,7 @@ function escapeHtml(str) {
 
 const uninstallModal = document.getElementById("uninstall-modal");
 let uninstallContext = null;  // { pythonPath, packageName }
+let cacheClearContext = null;  // { categoryPath, categoryName, clearAll }
 
 // ── 文档级事件委托（统一处理所有动态生成的按钮和可展开行）──────
 
@@ -702,7 +777,27 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // 4) 可展开行 — 跳转到包列表标签页
+  // 4) 缓存清理按钮（单个分类）
+  const clearCacheBtn = e.target.closest(".btn-clear-cache");
+  if (clearCacheBtn && !clearCacheBtn.disabled) {
+    e.stopPropagation();
+    const catPath = clearCacheBtn.dataset.categoryPath;
+    const catName = clearCacheBtn.dataset.categoryName;
+    cacheClearContext = { categoryPath: catPath, categoryName: catName, clearAll: false };
+    startCacheClearFlow();
+    return;
+  }
+
+  // 5) 清理全部缓存按钮
+  const clearAllBtn = e.target.closest(".btn-clear-all-cache");
+  if (clearAllBtn && !clearAllBtn.disabled) {
+    e.stopPropagation();
+    cacheClearContext = { clearAll: true };
+    startCacheClearFlow();
+    return;
+  }
+
+  // 6) 可展开行 — 跳转到包列表标签页
   const row = e.target.closest(".data-table__row--expandable");
   if (row && !e.target.closest("button")) {
     selectPythonRow(row);
@@ -722,6 +817,7 @@ deleteVenvModal.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
+    if (!welcomeModal.hidden) { welcomeModal.hidden = true; return; }
     if (!uninstallModal.hidden) closeModal();
     if (!deleteVenvModal.hidden) {
       deleteVenvModal.hidden = true;
@@ -819,6 +915,7 @@ function showBlockedModal(packageName, message) {
 function closeModal() {
   uninstallModal.hidden = true;
   uninstallContext = null;
+  cacheClearContext = null;
 }
 
 async function executeUninstall(force) {
@@ -861,6 +958,121 @@ async function executeUninstall(force) {
 function refreshCurrentPackageList(pythonPath) {
   // 直接重新加载包列表标签页
   loadPackagesTab();
+}
+
+// ── 缓存清理流程 ─────────────────────────────────────────────────────
+
+async function startCacheClearFlow() {
+  if (!cacheClearContext) return;
+
+  // 显示 loading 弹窗
+  document.getElementById("modal-icon").textContent = "";
+  document.getElementById("modal-title").textContent = "正在检查…";
+  document.getElementById("modal-body").innerHTML = `<p>正在分析缓存内容…</p>`;
+  document.getElementById("modal-footer").innerHTML = "";
+  uninstallModal.hidden = false;
+
+  try {
+    const body = cacheClearContext.clearAll
+      ? { all: true }
+      : { category_path: cacheClearContext.categoryPath, category_name: cacheClearContext.categoryName };
+
+    const resp = await fetch("/api/cache/clear/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      closeModal();
+      showToast(data.error, "error");
+      return;
+    }
+
+    showCacheClearModal(data);
+  } catch (err) {
+    closeModal();
+    showToast(`检查失败: ${err.message}`, "error");
+  }
+}
+
+function showCacheClearModal(data) {
+  document.getElementById("modal-icon").textContent = "";
+  document.getElementById("modal-title").textContent = "确认清理缓存";
+
+  if (data.all) {
+    const catList = (data.categories || []).map((n) => `<span class="dep-tag">${escapeHtml(n)}</span>`).join("");
+    document.getElementById("modal-body").innerHTML = `
+      <p>${escapeHtml(data.message)}</p>
+      ${catList ? `<div class="dep-list">${catList}</div>` : ""}
+      ${data.risk ? `<p style="margin-top:12px;color:var(--yellow)"> ${escapeHtml(data.risk)}</p>` : ""}
+      <p style="margin-top:12px;color:var(--text-muted)">共 ${data.file_count} 个文件，${formatSize(data.size_mb)}。</p>
+    `;
+  } else {
+    document.getElementById("modal-body").innerHTML = `
+      <p>确定要清理 <code>${escapeHtml(data.name)}</code> 吗？</p>
+      <p>${escapeHtml(data.message)}</p>
+      ${data.risk ? `<p style="margin-top:8px;color:var(--yellow)"> ${escapeHtml(data.risk)}</p>` : ""}
+    `;
+  }
+
+  document.getElementById("modal-footer").innerHTML = `
+    <button class="btn btn--ghost" onclick="closeModal()">取消</button>
+    <button class="btn btn--danger" id="btn-confirm-cache-clear">确认清理</button>
+  `;
+  uninstallModal.hidden = false;
+
+  document.getElementById("btn-confirm-cache-clear").onclick = () => {
+    executeCacheClear();
+  };
+}
+
+async function executeCacheClear() {
+  if (!cacheClearContext) return;
+
+  const confirmBtn = document.getElementById("btn-confirm-cache-clear");
+  if (confirmBtn) confirmBtn.disabled = true;
+
+  try {
+    const body = cacheClearContext.clearAll
+      ? { all: true, confirm: true }
+      : { category_path: cacheClearContext.categoryPath, confirm: true };
+
+    const resp = await fetch("/api/cache/clear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      closeModal();
+      showToast(data.message, "success");
+      refreshPipCacheTab();
+    } else {
+      closeModal();
+      showToast(data.message || "清理失败", "error");
+    }
+  } catch (err) {
+    closeModal();
+    showToast(`请求失败: ${err.message}`, "error");
+  }
+}
+
+async function refreshPipCacheTab() {
+  try {
+    const resp = await fetch("/api/pip-cache");
+    const data = await resp.json();
+    if (data.error) {
+      showToast(data.error, "error");
+      return;
+    }
+    renderPipCacheTab(data);
+    updateStatCard("pip-cache", formatSize(data.total_size_mb));
+  } catch (err) {
+    showToast(`刷新缓存数据失败: ${err.message}`, "error");
+  }
 }
 
 // ── Toast 提示 ───────────────────────────────────────────────────────

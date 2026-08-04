@@ -36,6 +36,23 @@
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  扫描摘要（扫描完成后显示）                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="scan-summary" id="scan-summary" hidden>
+    <span class="scan-summary__item">
+      已扫描 <strong id="summary-drives">—</strong>
+    </span>
+    <span class="scan-summary__sep"></span>
+    <span class="scan-summary__item">
+      检查 <strong id="summary-files">—</strong> 个条目
+    </span>
+    <span class="scan-summary__sep"></span>
+    <span class="scan-summary__item">
+      耗时 <strong id="summary-duration">—</strong> 秒
+    </span>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <!--  统计卡片                                                      -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section class="stat-cards" id="stat-cards">
@@ -151,6 +168,37 @@
     </section>
 
   </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  首次启动欢迎弹窗                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="welcome-modal" hidden>
+    <div class="modal" style="width:520px">
+      <div class="modal__header">
+        <h3 class="modal__title"> 欢迎使用 PyPeek</h3>
+      </div>
+      <div class="modal__body">
+        <p style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:16px">
+          Python 环境桌面浏览器 — 一眼看全你机器上的 Python 安装、虚拟环境和 pip 缓存。
+        </p>
+        <div class="welcome-privacy">
+          <span class="welcome-privacy__icon"></span>
+          <span>所有扫描和数据仅在本地处理，<strong>不会上传到任何云端服务器</strong>。</span>
+        </div>
+        <p style="margin-top:16px;margin-bottom:6px;font-weight:600;color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:0.5px">即将扫描的范围</p>
+        <ul class="welcome-scope">
+          <li>PATH 环境变量中的 Python 可执行文件</li>
+          <li>系统注册表中的 Python 安装记录</li>
+          <li>所有盘符下的虚拟环境（pyvenv.cfg）</li>
+          <li>pip 包缓存目录及占用空间</li>
+        </ul>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" id="btn-welcome-skip">稍后再说</button>
+        <button class="btn btn--primary" id="btn-welcome-scan"> 开始扫描</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!--  卸载确认弹窗                                                  -->
