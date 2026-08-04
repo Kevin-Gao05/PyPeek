@@ -489,7 +489,9 @@ function renderPackagesInTab(packages) {
 function renderPipCacheTab(pipCache) {
   const panel = document.getElementById("panel-pip-cache");
   const empty = panel.querySelector(".empty-state");
-  let chart = panel.querySelector(".cache-chart");
+
+  // 清理旧的缓存图表（可能有多个残留，用 querySelectorAll 全部移除）
+  panel.querySelectorAll(".cache-chart").forEach((el) => el.remove());
 
   if (!pipCache.categories || !pipCache.categories.length) {
     if (empty) {
@@ -499,12 +501,10 @@ function renderPipCacheTab(pipCache) {
         <p class="empty-state__hint">当前 pip 缓存为空，或者缓存目录不存在。</p>`;
       empty.hidden = false;
     }
-    if (chart) chart.hidden = true;
     return;
   }
 
   if (empty) empty.hidden = true;
-  if (chart) chart.remove();
 
   const maxSize = Math.max(...pipCache.categories.map((c) => c.size_mb), 1);
 
