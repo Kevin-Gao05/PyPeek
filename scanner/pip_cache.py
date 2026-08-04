@@ -206,6 +206,16 @@ def _dir_stats(path):
 
 # ── 辅助 ──────────────────────────────────────────────────────────────
 
+def get_cache_root():
+    """返回 pip 缓存根目录路径（公开接口）。"""
+    return _get_cache_path()
+
+
+def get_dir_stats(path):
+    """获取目录统计信息，返回 (size_mb, file_count)（公开接口）。"""
+    return _dir_stats(path)
+
+
 def _report(callback, phase, data):
     if callback:
         try:

@@ -7,16 +7,22 @@ PyPeek HTTP 服务 — 基于标准库 ThreadingHTTPServer。
 
 import json
 import os
+import time
 import threading
 import mimetypes
+import platform
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 from scanner.pythons import discover_pythons
 from scanner.venvs import discover_venvs
-from scanner.pip_cache import discover_pip_cache
+from scanner.pip_cache import discover_pip_cache, get_cache_root, get_dir_stats
 from scanner.site_packages import get_packages, check_uninstall_safety, uninstall_package
+from scanner.cache import load_cache, save_cache
 from server.sse import sse_manager
+
+IS_WINDOWS = platform.system() == "Windows"
 
 # 并发扫描锁（同一时间只允许一个扫描运行）
 _scan_lock = threading.Lock()
@@ -56,6 +62,33 @@ def _is_valid_python_exe(path):
     return False
 
 
+def _collect_drives_scanned(pythons, venvs):
+    """从扫描结果中提取被扫描到的盘符/挂载点列表。"""
+    drives = set()
+    all_paths = [p.get("path", "") for p in pythons]
+    all_paths += [v.get("path", "") for v in venvs]
+
+    if IS_WINDOWS:
+        for p in all_paths:
+            if len(p) >= 2 and p[1] == ":":
+                drives.add(p[0].upper() + ":")
+    else:
+        # Linux/macOS：收集顶层挂载点
+        for p in all_paths:
+            if p.startswith("/home"):
+                drives.add("/home")
+            elif p.startswith("/opt"):
+                drives.add("/opt")
+            elif p.startswith("/srv"):
+                drives.add("/srv")
+            elif p.startswith("/usr"):
+                drives.add("/usr")
+            elif p.startswith("/"):
+                drives.add("/")
+
+    return sorted(drives) if drives else []
+
+
 class RequestHandler(BaseHTTPRequestHandler):
     """PyPeek API 路由 + 静态文件请求处理器。"""
 
@@ -68,6 +101,12 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/health":
             self._send_json({"status": "ok"})
+
+        elif path == "/api/cache":
+            self._handle_cache()
+
+        elif path == "/api/pip-cache":
+            self._handle_pip_cache()
 
         elif path == "/api/scan":
             self._handle_scan()
@@ -93,6 +132,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._handle_uninstall()
         elif path == "/api/uninstall/preview":
             self._handle_uninstall_preview()
+        elif path == "/api/cache/clear":
+            self._handle_cache_clear()
+        elif path == "/api/cache/clear/preview":
+            self._handle_cache_clear_preview()
         elif path == "/api/open-folder":
             self._handle_open_folder()
         elif path == "/api/delete-venv":
@@ -108,6 +151,200 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     # ── API 处理器 ─────────────────────────────────────────────────
 
+    def _handle_cache(self):
+        """GET /api/cache — 返回缓存的扫描结果（或 null）。"""
+        data = load_cache()
+        if data is None:
+            self._send_json({"cached": False, "data": None})
+        else:
+            self._send_json({"cached": True, "data": data})
+
+    def _handle_pip_cache(self):
+        """GET /api/pip-cache — 返回当前 pip 缓存数据。"""
+        try:
+            data = discover_pip_cache()
+            self._send_json(data)
+        except Exception as exc:
+            self._send_json({"error": str(exc)}, status=500)
+
+    def _handle_cache_clear_preview(self):
+        """POST /api/cache/clear/preview — 预览清理操作（不执行）。"""
+        import shutil as _shutil
+
+        body = self._read_body()
+        if body is None:
+            return
+
+        clear_all = body.get("all", False)
+        cache_root = get_cache_root()
+
+        if not cache_root:
+            self._send_json({"error": "未找到 pip 缓存目录"}, status=404)
+            return
+
+        if clear_all:
+            if not os.path.isdir(cache_root):
+                self._send_json({"error": "pip 缓存目录不存在"}, status=404)
+                return
+            categories = discover_pip_cache().get("categories", [])
+            total_size = sum(c["size_mb"] for c in categories)
+            total_files = sum(c["file_count"] for c in categories)
+            self._send_json({
+                "ok": True,
+                "all": True,
+                "path": cache_root,
+                "size_mb": round(total_size, 1),
+                "file_count": total_files,
+                "categories": [c["name"] for c in categories],
+                "message": (
+                    f"将清理全部 pip 缓存（{len(categories)} 个分类），"
+                    f"共 {total_files} 个文件，释放 {round(total_size, 1)} MB。"
+                ),
+                "risk": "清空后，下次 pip install 需要重新下载所有包文件。",
+            })
+        else:
+            category_path = body.get("category_path", "")
+            category_name = body.get("category_name", "")
+
+            if not category_path:
+                self._send_json({"error": "缺少 category_path 参数"}, status=400)
+                return
+
+            norm_path = os.path.normpath(category_path)
+            norm_root = os.path.normpath(cache_root)
+            if not norm_path.startswith(norm_root + os.sep) and norm_path != norm_root:
+                self._send_json({"error": "路径不在 pip 缓存目录内"}, status=403)
+                return
+
+            if not os.path.isdir(norm_path):
+                self._send_json({"error": "缓存分类目录不存在"}, status=404)
+                return
+
+            size_mb, file_count = get_dir_stats(norm_path)
+
+            # 风险提示
+            risk = "清空后，下次 pip install 需重新下载对应文件。"
+            if "wheels" in norm_path.lower() or "本地编译" in category_name:
+                risk = "清空后，下次安装同包时需重新编译，耗时较长。"
+            elif "selfcheck" in norm_path.lower() or "自检" in category_name:
+                risk = "仅 pip 自检记录，清理无影响。"
+
+            self._send_json({
+                "ok": True,
+                "all": False,
+                "path": norm_path,
+                "name": category_name,
+                "size_mb": size_mb,
+                "file_count": file_count,
+                "message": f"将删除 {file_count} 个文件，释放 {size_mb} MB。",
+                "risk": risk,
+            })
+
+    def _handle_cache_clear(self):
+        """POST /api/cache/clear — 执行缓存清理（需 confirm: true）。"""
+        import shutil as _shutil
+        import stat as _stat
+
+        body = self._read_body()
+        if body is None:
+            return
+
+        if not body.get("confirm"):
+            self._send_json({"error": "需要 confirm: true 才能执行清理"}, status=400)
+            return
+
+        clear_all = body.get("all", False)
+        cache_root = get_cache_root()
+
+        if not cache_root:
+            self._send_json({"error": "未找到 pip 缓存目录"}, status=404)
+            return
+
+        if clear_all:
+            target = cache_root
+            label = "全部 pip 缓存"
+        else:
+            category_path = body.get("category_path", "")
+            category_name = body.get("category_name", "")
+
+            if not category_path:
+                self._send_json({"error": "缺少 category_path 参数"}, status=400)
+                return
+
+            norm_path = os.path.normpath(category_path)
+            norm_root = os.path.normpath(cache_root)
+            if not norm_path.startswith(norm_root + os.sep) and norm_path != norm_root:
+                self._send_json({"error": "路径不在 pip 缓存目录内"}, status=403)
+                return
+
+            if not os.path.isdir(norm_path):
+                self._send_json({"error": "缓存分类目录不存在"}, status=404)
+                return
+
+            target = norm_path
+            label = category_name or os.path.basename(norm_path)
+
+        # 清理前统计大小
+        size_mb_before, _file_count = get_dir_stats(target)
+
+        # ── 执行删除 ─────────────────────────────────────────────────
+        deleted = False
+        errors = []
+
+        def _onerror(_func, path, _excinfo):
+            if os.path.islink(path):
+                os.unlink(path)
+                return
+            try:
+                os.chmod(path, _stat.S_IWRITE)
+                if os.path.isfile(path):
+                    os.unlink(path)
+                elif os.path.isdir(path):
+                    os.rmdir(path)
+            except Exception as e:
+                errors.append(f"{path}: {e}")
+
+        try:
+            _shutil.rmtree(target, onerror=_onerror)
+        except Exception as e:
+            errors.append(str(e))
+
+        if not os.path.isdir(target):
+            deleted = True
+        elif not errors:
+            # fallback: try system command
+            import platform as _pf
+            import subprocess as _sp
+            if _pf.system() == "Windows":
+                try:
+                    _sp.run(["cmd", "/c", "rmdir", "/s", "/q", target],
+                            capture_output=True, timeout=30)
+                    if not os.path.isdir(target):
+                        deleted = True
+                except Exception as e:
+                    errors.append(f"rmdir fallback: {e}")
+            else:
+                try:
+                    _sp.run(["rm", "-rf", target],
+                            capture_output=True, timeout=30)
+                    if not os.path.isdir(target):
+                        deleted = True
+                except Exception as e:
+                    errors.append(f"rm fallback: {e}")
+
+        if deleted:
+            self._send_json({
+                "ok": True,
+                "message": f"已清理「{label}」，释放 {size_mb_before} MB。",
+                "freed_mb": size_mb_before,
+            })
+        else:
+            detail = "; ".join(errors) if errors else "目录删除后仍然存在（可能被其他进程占用）"
+            self._send_json({
+                "ok": False,
+                "message": f"清理失败: {detail}",
+            }, status=500)
+
     def _handle_scan(self):
         """GET /api/scan — 启动一次完整扫描，立即返回 scan_id。"""
         # 速率限制：同一时间只允许一个扫描运行
@@ -118,8 +355,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         scan_id = sse_manager.create_scan()
+        scan_start_time = time.time()
 
         def run_scan():
+            pythons = []
+            venvs = []
+            pip_cache = {}
+            scan_summary = {
+                "drives_scanned": [],
+                "files_checked": 0,
+                "duration_seconds": 0,
+            }
             try:
                 _scan_lock.acquire()
                 def on_progress(phase, data):
@@ -129,7 +375,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                 venvs = discover_venvs(on_progress=on_progress)
                 pip_cache = discover_pip_cache(on_progress=on_progress)
 
-                # 最终推送
+                # ── 扫描摘要 ──────────────────────────────────────
+                elapsed = round(time.time() - scan_start_time, 1)
+                files_checked = len(pythons) + len(venvs)
+                drives = _collect_drives_scanned(pythons, venvs)
+                scan_summary = {
+                    "drives_scanned": drives,
+                    "files_checked": files_checked,
+                    "duration_seconds": elapsed,
+                }
+
+                # 最终推送（含扫描摘要）
                 sse_manager.push(scan_id, "phase_update", {
                     "phase": "pythons",
                     "detail": f"快速扫描完成 — 共发现 {len(pythons)} 个 Python 安装",
@@ -142,12 +398,26 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "venvs": venvs,
                     "pip_cache": pip_cache,
                     "conda_envs": None,
+                    "scan_summary": scan_summary,
                 })
             except Exception as exc:
                 sse_manager.push(scan_id, "scan_error", {
                     "error": str(exc),
                 })
             finally:
+                # ── 保存缓存 ──────────────────────────────────────
+                try:
+                    cache_data = {
+                        "scanned_at": datetime.now(timezone.utc).isoformat(),
+                        "scan_summary": scan_summary,
+                        "pythons": pythons,
+                        "venvs": venvs,
+                        "pip_cache": pip_cache,
+                    }
+                    save_cache(cache_data)
+                except Exception:
+                    pass  # 缓存写入失败不应影响扫描结果
+
                 sse_manager.finish_scan(scan_id)
                 _scan_lock.release()
 
