@@ -63,13 +63,14 @@ scanner/
   venvs.py                虚拟环境发现（pyvenv.cfg 全盘搜索）
   pip_cache.py            pip 缓存分析与分类
   site_packages.py        包详情、安全分级、卸载执行
+  cache.py                本地扫描结果缓存
 server/
   app.py                  HTTP 路由、REST API、CORS
   sse.py                  SSE 事件管理器（线程安全队列）
 static/
-  index.html              单页骨架 + 卸载弹窗 + Toast
+  index.html              单页骨架 + 欢迎弹窗 + 卸载弹窗 + Toast
   style.css               Swiss 设计系统（CSS 变量驱动）
-  app.js                  前端逻辑：SSE 消费、表格渲染、卸载流程
+  app.js                  前端逻辑：SSE 消费、表格渲染、卸载流程、缓存清理
 ```
 
 纯 Python 标准库，零 Web 框架依赖。前端纯 HTML/CSS/JS，无构建工具。扫描进度通过 SSE 实时推送。
@@ -79,11 +80,15 @@ static/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/health` | 健康检查 |
+| GET | `/api/cache` | 返回本地缓存的扫描结果（`cached: false` 表示首次启动） |
 | GET | `/api/scan` | 触发全量扫描，返回 `scan_id` |
-| GET | `/api/scan/progress?scan_id=` | SSE 事件流（实时进度推送） |
+| GET | `/api/scan/progress?scan_id=` | SSE 事件流（实时进度推送），`scan_complete` 含扫描摘要 |
+| GET | `/api/pip-cache` | 返回当前 pip 缓存数据 |
 | GET | `/api/packages?python_path=` | 获取指定 Python 环境的包列表 |
 | POST | `/api/uninstall/preview` | 卸载前安全检查（dry-run），返回安全等级 |
 | POST | `/api/uninstall` | 执行卸载，`{python_path, package, force?}` |
+| POST | `/api/cache/clear/preview` | 预览缓存清理（dry-run），返回大小、文件数、风险提示 |
+| POST | `/api/cache/clear` | 执行缓存清理，`{category_path, confirm}` 或 `{all: true, confirm}` |
 | POST | `/api/open-folder` | 在资源管理器中打开指定路径 |
 | POST | `/api/delete-venv` | 删除虚拟环境（含安全校验） |
 
@@ -124,6 +129,40 @@ static/
 - Conda 环境发现暂未实现（`scanner/conda.py` 为占位）
 - 不支持批量卸载
 - 无深色/浅色主题切换（当前为 Swiss 浅色主题）
+
+## 更新日志
+
+### V1.1.0 (2026-08-04)
+
+本批次合并 3 张 ticket，聚焦 V2 UX 增强 — 启动体验和缓存管理。
+
+**新增**
+- 本地扫描缓存（`scanner/cache.py`）— 扫描结果保存到 `~/.config/PyPeek/cache.json`，二次启动直接加载，无需等待扫描
+- 首次启动欢迎弹窗 — 隐私说明 + 扫描范围预览，「开始扫描」/「稍后再说」两个入口
+- 扫描摘要行 — 扫描完成后实时显示盘符、文件数、耗时
+- pip 缓存分类清理 — 每个分类「清理」按钮 + 总览区「清理全部缓存」
+- `GET /api/cache` — 返回缓存数据及 `cached` 标识
+- `GET /api/pip-cache`、`POST /api/cache/clear/preview`、`POST /api/cache/clear` — 缓存清理 API
+
+**改进**
+- `scan_complete` SSE 事件新增 `scan_summary` 字段
+
+**修复**
+- pip 缓存清理后 UI 刷新不完整问题
+
+### V1.0.0 (2026-08-03)
+
+初始发布。
+
+- Python 安装发现：PATH + Windows 注册表，识别 python.org / Microsoft Store / Conda 来源，同版本标记重复
+- 虚拟环境发现：全盘搜索 `pyvenv.cfg`，路径、版本、大小、包数量、最后修改时间
+- pip 缓存分析：分类柱状图，展示下载缓存 / 本地编译 / 自检记录
+- 包浏览器：可展开行，安全徽章（safe / warning / danger），pip show 批量富化
+- 安全卸载：三级分级 + 依赖冲突弹窗 + 强制确认 + 路径校验 + 参数注入防护
+- 虚拟环境删除：三道安全检查（pyvenv.cfg 验证、符号链接拒绝、删后存在性验证）
+- SSE 实时进度：Server-Sent Events 推送扫描阶段和进度百分比
+- Swiss 设计系统：Helvetica Neue + Swiss Red + 1px hairline，CSS 变量驱动
+- 零 Web 框架：`ThreadingHTTPServer` + 纯 HTML/CSS/JS，无第三方依赖
 
 ## 参与
 
