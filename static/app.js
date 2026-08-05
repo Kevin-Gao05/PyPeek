@@ -82,6 +82,10 @@ document.getElementById("btn-welcome-scan").addEventListener("click", () => {
   welcomeModal.hidden = true;
   needsOnboarding = true;
   btnRefresh.click();
+  // 立刻启动教程，不等待扫描完成
+  onboardingActive = true;
+  _onboardingScanDone = false;
+  setTimeout(() => showOnboardingStep(0), 300);
 });
 
 document.getElementById("btn-welcome-skip").addEventListener("click", () => {
@@ -120,6 +124,17 @@ const ONBOARDING_STEPS = [
       const pyTab = tabBar.querySelector('[data-tab="pythons"]');
       if (pyTab) pyTab.click();
     },
+  },
+  {
+    title: "正在扫描你的系统",
+    desc: "PyPeek 正在搜索 PATH、注册表和磁盘上的 <code>pyvenv.cfg</code> 文件。<br>所有数据仅在本地处理，<strong>不会上传到任何云端服务器</strong>。",
+    target: "#scan-bar",
+    position: "below",
+    prev: true,
+    next: false,
+    skip: true,
+    finish: false,
+    // 「下一步」由 scan_complete 自动触发
   },
   {
     title: "展开查看包列表",
@@ -162,8 +177,15 @@ const ONBOARDING_STEPS = [
 
 let onboardingActive = false;
 let onboardingStep = -1;
+let _onboardingScanDone = false;
 
 function showOnboardingStep(n) {
+  // 扫描步骤：如果扫描已完成则直接跳过
+  if (n === 2 && _onboardingScanDone) {
+    showOnboardingStep(3);
+    return;
+  }
+
   clearOnboardingHighlight();
 
   onboardingStep = n;
@@ -203,7 +225,6 @@ function showOnboardingStep(n) {
   const doShow = () => {
     highlightOnboardingTarget(step.target);
     overlay.hidden = false;
-    // 给浏览器一帧时间让高亮元素渲染到位，再定位 tooltip
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         positionOnboardingTooltip(step.target, step.position);
@@ -214,8 +235,8 @@ function showOnboardingStep(n) {
   if (step.beforeShow) {
     const result = step.beforeShow();
     if (result && typeof result.then === "function") {
-      // 异步 beforeShow（如自动点击行 → 切换标签页）需要额外延迟
-      result.then(() => setTimeout(doShow, 150));
+      // 异步 beforeShow 需要更长延迟让 DOM 稳定，防止 tooltip 跳动
+      result.then(() => setTimeout(doShow, 350));
     } else {
       doShow();
     }
@@ -228,8 +249,10 @@ function hideOnboarding() {
   const prevStep = ONBOARDING_STEPS[onboardingStep];
   onboardingActive = false;
   needsOnboarding = false;
+  _onboardingScanDone = false;
   document.getElementById("onboarding-overlay").hidden = true;
   clearOnboardingHighlight();
+  hideScanBar();
   if (prevStep && prevStep.afterHide) prevStep.afterHide();
   onboardingStep = -1;
 }
@@ -237,7 +260,7 @@ function hideOnboarding() {
 function highlightOnboardingTarget(selector) {
   const el = document.querySelector(selector);
   if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.scrollIntoView({ behavior: "instant", block: "center" });
   el.classList.add("onboarding-highlight");
 }
 
@@ -399,12 +422,13 @@ function connectSSE(scanId) {
     updateScanProgress(1.0, "扫描完成", "");
     btnRefresh.disabled = false;
 
-    // ── Onboarding: 扫描完成后启动教程 ──────────────────────────────
-    if (needsOnboarding) {
-      needsOnboarding = false;
-      onboardingActive = true;
-      setTimeout(() => showOnboardingStep(0), 600);
-    } else {
+    // ── Onboarding: 扫描完成通知 + 自动推进 ────────────────────────
+    _onboardingScanDone = true;
+    if (onboardingActive && onboardingStep === 2) {
+      // 用户在「扫描中」步骤，自动跳到下一步
+      setTimeout(() => showOnboardingStep(3), 500);
+    }
+    if (!onboardingActive) {
       setTimeout(hideScanBar, 1500);
     }
 
