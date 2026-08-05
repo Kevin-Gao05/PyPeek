@@ -9,8 +9,12 @@
 import os
 import json
 import platform
+from datetime import datetime, timezone
 
 IS_WINDOWS = platform.system() == "Windows"
+
+# 缓存有效期：7 天（单位：秒）
+CACHE_MAX_AGE_SECONDS = 7 * 24 * 3600
 
 
 def get_cache_dir():
@@ -49,6 +53,15 @@ def load_cache():
     # 验证必需字段 — 缺少任何字段视为损坏
     required = ("scanned_at", "pythons", "venvs", "pip_cache")
     if not all(k in data for k in required):
+        return None
+
+    # 检查缓存是否过期（超过 7 天视为无效）
+    try:
+        scanned_at = datetime.fromisoformat(data["scanned_at"])
+        age = datetime.now(timezone.utc) - scanned_at
+        if age.total_seconds() > CACHE_MAX_AGE_SECONDS:
+            return None
+    except (ValueError, TypeError):
         return None
 
     return data

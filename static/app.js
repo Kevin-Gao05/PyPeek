@@ -179,9 +179,10 @@ let onboardingStep = -1;
 let _onboardingScanDone = false;
 
 function showOnboardingStep(n) {
-  // 扫描步骤：如果扫描已完成则直接跳过
+  // 扫描步骤：如果扫描已完成则直接跳过（根据方向决定跳去哪）
   if (n === 2 && _onboardingScanDone) {
-    showOnboardingStep(3);
+    if (onboardingStep < 2) showOnboardingStep(3);   // 向前 → 跳到 Step 4
+    else showOnboardingStep(1);                       // 向后 → 跳到 Step 2
     return;
   }
 
@@ -1783,6 +1784,7 @@ if (btnHelp) {
       return;
     }
     onboardingActive = true;
+    _onboardingScanDone = true;  // 已有扫描数据，跳过「扫描中」步骤
     showOnboardingStep(0);
   });
 }
