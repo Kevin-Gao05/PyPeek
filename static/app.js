@@ -81,10 +81,7 @@ let needsOnboarding = false;
 document.getElementById("btn-welcome-scan").addEventListener("click", () => {
   welcomeModal.hidden = true;
   needsOnboarding = true;
-  // 触发与刷新按钮相同的扫描流程
   btnRefresh.click();
-  // 延迟启动 onboarding，等 scan bar 渲染出来
-  setTimeout(() => startOnboarding(), 200);
 });
 
 document.getElementById("btn-welcome-skip").addEventListener("click", () => {
@@ -100,16 +97,6 @@ welcomeModal.addEventListener("click", (e) => {
 // ── Onboarding 步骤定义 ───────────────────────────────────────────
 
 const ONBOARDING_STEPS = [
-  {
-    title: "正在扫描你的系统",
-    desc: "PyPeek 正在搜索 PATH、注册表和磁盘上的 <code>pyvenv.cfg</code> 文件。<br>所有数据仅在本地处理，<strong>不会上传到任何云端服务器</strong>。",
-    target: "#scan-bar",
-    position: "below",
-    prev: false,
-    next: false,
-    skip: true,
-    finish: false,
-  },
   {
     title: "扫描结果一览",
     desc: "扫描完成后，这里展示本机 Python 安装数量、虚拟环境数量、pip 缓存占用和包总数。<br>点击卡片可快速跳转到对应标签页。",
@@ -130,33 +117,19 @@ const ONBOARDING_STEPS = [
     skip: true,
     finish: false,
     beforeShow() {
-      // 确保在 Python 安装标签页
       const pyTab = tabBar.querySelector('[data-tab="pythons"]');
       if (pyTab) pyTab.click();
     },
   },
   {
     title: "展开查看包列表",
-    desc: "点击 Python 或虚拟环境行，即可查看该环境已安装的所有包。<br>试试点击下方高亮的第一行。",
+    desc: "点击 Python 或虚拟环境行，即可查看该环境已安装的所有包。<br>下方高亮的是第一行，试试点击它。",
     target: "#panel-pythons .data-table__row--expandable:first-child",
     position: "below",
     prev: true,
     next: true,
     skip: true,
     finish: false,
-    beforeShow() {
-      return new Promise((resolve) => {
-        const firstRow = document.querySelector("#panel-pythons .data-table__row--expandable");
-        if (firstRow) selectPythonRow(firstRow);
-        // 等待包列表加载（安全徽章出现或超时 3s）
-        let ticks = 0;
-        const check = setInterval(() => {
-          const badge = document.querySelector("#panel-packages .safety-badge");
-          if (badge || ticks >= 30) { clearInterval(check); resolve(); }
-          ticks++;
-        }, 100);
-      });
-    },
   },
   {
     title: "卸载前看清安全等级",
@@ -167,6 +140,18 @@ const ONBOARDING_STEPS = [
     next: false,
     skip: false,
     finish: true,
+    beforeShow() {
+      return new Promise((resolve) => {
+        const firstRow = document.querySelector("#panel-pythons .data-table__row--expandable");
+        if (firstRow) selectPythonRow(firstRow);
+        let ticks = 0;
+        const check = setInterval(() => {
+          const badge = document.querySelector("#panel-packages .safety-badge");
+          if (badge || ticks >= 30) { clearInterval(check); resolve(); }
+          ticks++;
+        }, 100);
+      });
+    },
     afterHide() {
       const backBtn = document.getElementById("btn-packages-back");
       if (backBtn) backBtn.click();
@@ -178,13 +163,7 @@ const ONBOARDING_STEPS = [
 let onboardingActive = false;
 let onboardingStep = -1;
 
-function startOnboarding() {
-  onboardingActive = true;
-  showOnboardingStep(0);
-}
-
 function showOnboardingStep(n) {
-  // 先清理上一步的高亮
   clearOnboardingHighlight();
 
   onboardingStep = n;
@@ -195,8 +174,7 @@ function showOnboardingStep(n) {
   const desc = document.getElementById("onboarding-desc");
   const actions = document.getElementById("onboarding-actions");
 
-  const totalUserSteps = ONBOARDING_STEPS.length - 1;
-  stepLabel.textContent = n === 0 ? "" : `第 ${n} 步 / 共 ${totalUserSteps} 步`;
+  stepLabel.textContent = `第 ${n + 1} 步 / 共 ${ONBOARDING_STEPS.length} 步`;
   title.textContent = step.title;
   desc.innerHTML = step.desc;
 
@@ -225,16 +203,19 @@ function showOnboardingStep(n) {
   const doShow = () => {
     highlightOnboardingTarget(step.target);
     overlay.hidden = false;
-    // 延迟定位（等 overlay 可见 + target 滚动到位）
+    // 给浏览器一帧时间让高亮元素渲染到位，再定位 tooltip
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => positionOnboardingTooltip(step.target, step.position));
+      requestAnimationFrame(() => {
+        positionOnboardingTooltip(step.target, step.position);
+      });
     });
   };
 
   if (step.beforeShow) {
     const result = step.beforeShow();
     if (result && typeof result.then === "function") {
-      result.then(doShow);
+      // 异步 beforeShow（如自动点击行 → 切换标签页）需要额外延迟
+      result.then(() => setTimeout(doShow, 150));
     } else {
       doShow();
     }
@@ -418,10 +399,11 @@ function connectSSE(scanId) {
     updateScanProgress(1.0, "扫描完成", "");
     btnRefresh.disabled = false;
 
-    // ── Onboarding: 扫描完成后自动从 Step 0 推进到 Step 1 ──────────
-    if (onboardingActive && onboardingStep === 0) {
-      // 不隐藏 scan bar — 先推进到下一步
-      setTimeout(() => showOnboardingStep(1), 600);
+    // ── Onboarding: 扫描完成后启动教程 ──────────────────────────────
+    if (needsOnboarding) {
+      needsOnboarding = false;
+      onboardingActive = true;
+      setTimeout(() => showOnboardingStep(0), 600);
     } else {
       setTimeout(hideScanBar, 1500);
     }
@@ -1777,8 +1759,7 @@ if (btnHelp) {
       showToast("请先完成一次扫描", "error");
       return;
     }
-    // 从 Step 1 开始（跳过扫描步骤）
     onboardingActive = true;
-    showOnboardingStep(1);
+    showOnboardingStep(0);
   });
 }
