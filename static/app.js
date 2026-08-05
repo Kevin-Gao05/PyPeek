@@ -127,14 +127,13 @@ const ONBOARDING_STEPS = [
   },
   {
     title: "正在扫描你的系统",
-    desc: "PyPeek 正在搜索 PATH、注册表和磁盘上的 <code>pyvenv.cfg</code> 文件。<br>所有数据仅在本地处理，<strong>不会上传到任何云端服务器</strong>。",
+    desc: "PyPeek 正在搜索 PATH、注册表和磁盘上的 <code>pyvenv.cfg</code> 文件。<br>所有数据仅在本地处理，<strong>不会上传到任何云端服务器</strong>。<br>扫描完成后会自动进入下一步。",
     target: "#scan-bar",
     position: "below",
     prev: true,
-    next: false,
+    next: true,
     skip: true,
     finish: false,
-    // 「下一步」由 scan_complete 自动触发
   },
   {
     title: "展开查看包列表",
