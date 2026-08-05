@@ -10,13 +10,16 @@ PyPeek — a desktop browser for your Python environments. Double-click to open,
 
 - **Python Discovery** — PATH scanning + Windows Registry lookup. Identifies installs from python.org, Microsoft Store, and Conda. Flags duplicate versions across multiple locations.
 - **Virtual Environment Discovery** — Full-disk search for `pyvenv.cfg`. Lists path, Python version, disk usage, package count, and last modified time. Skips system directories automatically.
+- **Python ↔ Venv Bidirectional Linking** — Python table shows linked venv count, click to expand sub-list and jump to venv tab. Venv table source Python is clickable with highlight flash on jump.
+- **Duplicate Environment Detection** — "Possible Duplicates" subtab in Venv tab. Same-group environments marked with color-coded left borders (8-color palette). Expand to compare differences.
 - **pip Cache Analysis** — Categorized view of download cache, locally-built wheels, and self-check records. Bar chart visualization of each category's footprint.
+- **pip Cache Cleanup** — Clear individual cache categories or all at once. Preview → confirm → execute flow shows size, file count, and risk warnings before deleting.
 - **Package Browser** — Click any Python or venv row to expand its package list. Name, version, size, summary, and safety level per package.
 - **Safe Uninstall** — Three-tier safety classification (safe / dependency conflict warning / system-critical blocked). Dry-run preview before uninstall. Dependency conflict modal lists all affected packages. Force uninstall requires explicit confirmation.
 - **Virtual Environment Deletion** — Three safety checks: pyvenv.cfg verification, symlink rejection, post-delete existence check.
+- **Local Scan Cache** — Scan results persisted to local JSON. Instant load on subsequent launches. Auto-expires after 7 days.
 - **SSE Real-time Progress** — Scan progress pushed via Server-Sent Events. No polling.
-- **Local Cache** — Scan results cached locally (`~/.config/PyPeek/cache.json`). Second launch loads instantly — no waiting.
-- **pip Cache Cleanup** — Clear individual cache categories or all at once. Preview → confirm → execute flow shows size, file count, and risk warnings before deleting.
+- **Onboarding Tour** — Five-step guided tour on first use. Semi-transparent overlay + pulsing border highlights. "?" button to revisit anytime.
 
 ## Screenshots
 
@@ -135,6 +138,20 @@ Click "Uninstall"
 - No dark/light theme toggle (currently Swiss light theme).
 
 ## Changelog
+
+### V1.2.0 (2026-08-05)
+
+Three tickets merged, focused on UX enhancements — bidirectional linking, duplicate detection, and user onboarding.
+
+**Additions**
+- Python ↔ Venv bidirectional linking — Python table "Linked Venvs" column shows count of venvs created by that Python, click to expand sub-list and jump to venv tab; Venv table "Source Python" column is clickable, jumps to Python tab with highlight flash
+- Duplicate environment subtabs — Venv tab now has "All" / "Possible Duplicates (N)" subtab bar; same-group duplicates marked with color-coded left borders (8-color palette); empty state shows "No duplicates found"
+- Lightweight onboarding — Five-step guided tour on first scan: stat cards → tab bar → scan progress → first table row → safety badges; semi-transparent overlay + pulsing border highlights; "?" button in header to re-enter tour anytime
+- Cache 7-day TTL — Local scan cache auto-expires after 7 days, treated as first launch
+
+**Improvements**
+- Auto-cleanup duplicate group references on venv deletion, single-member groups lose duplicate marking
+- Skip "Scanning" step when re-entering tour via "?" button
 
 ### V1.1.0 (2026-08-04)
 
