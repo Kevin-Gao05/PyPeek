@@ -18,6 +18,7 @@
           <path d="M13.65 2.35A7.96 7.96 0 0 0 8 0a8 8 0 1 0 8 8v-1h-1.5v1A6.5 6.5 0 1 1 8 1.5a6.47 6.47 0 0 1 4.59 1.91L10.5 5.5H16V0l-2.35 2.35z" fill="currentColor"/>
         </svg>
       </button>
+      <button class="btn btn--ghost" id="btn-help" title="使用教程">?</button>
       <button class="btn btn--ghost" id="btn-about">关于</button>
     </div>
   </header>
@@ -111,10 +112,21 @@
 
     <!-- 虚拟环境标签页 -->
     <section class="tab-panel" id="panel-venvs" hidden>
-      <div class="empty-state">
+      <div class="sub-tab-bar" id="venv-sub-tabs" hidden>
+        <button class="sub-tab-bar__tab sub-tab-bar__tab--active" data-subtab="all">全部</button>
+        <button class="sub-tab-bar__tab" data-subtab="duplicates">
+          可能重复 (<span id="subtab-dup-count">0</span>)
+        </button>
+      </div>
+      <div class="empty-state" id="venv-empty-all">
         <div class="empty-state__icon"></div>
         <p class="empty-state__text">扫描完成后，虚拟环境将显示在这里。</p>
         <p class="empty-state__hint">PyPeek 会搜索所有盘符下的 <code>pyvenv.cfg</code> 文件。</p>
+      </div>
+      <div class="empty-state" id="venv-empty-duplicates" hidden>
+        <div class="empty-state__icon"></div>
+        <p class="empty-state__text">未发现重复环境</p>
+        <p class="empty-state__hint">所有虚拟环境的 Python 版本与父目录组合均唯一，没有检测到重复。</p>
       </div>
     </section>
 
@@ -211,6 +223,18 @@
       </div>
       <div class="modal__body" id="modal-body"></div>
       <div class="modal__footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  轻量 Onboarding 遮罩 + Tooltip                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="onboarding-overlay" id="onboarding-overlay" hidden>
+    <div class="onboarding-tooltip" id="onboarding-tooltip">
+      <p class="onboarding-tooltip__step" id="onboarding-step-label"></p>
+      <h3 class="onboarding-tooltip__title" id="onboarding-title"></h3>
+      <p class="onboarding-tooltip__desc" id="onboarding-desc"></p>
+      <div class="onboarding-tooltip__actions" id="onboarding-actions"></div>
     </div>
   </div>
 

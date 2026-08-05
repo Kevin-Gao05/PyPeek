@@ -847,3 +847,224 @@ body {
 }
 
 /* ── 滚动条（保持原生，Swiss 不自定义滚动条） ─────────────────────── */
+
+/* ── 虚拟环境子标签栏 ────────────────────────────────────────────── */
+
+.sub-tab-bar {
+  display: flex;
+  gap: 0;
+  padding: 0 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sub-tab-bar[hidden] {
+  display: none;
+}
+
+.sub-tab-bar__tab {
+  padding: 9px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+  margin-bottom: -1px;
+}
+
+.sub-tab-bar__tab:hover {
+  color: var(--text);
+}
+
+.sub-tab-bar__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── 重复环境分组样式 ────────────────────────────────────────────── */
+
+.data-table__row--dup-group {
+  border-left: 3px solid var(--dup-group-color, var(--yellow));
+}
+
+.data-table__row--dup-group:hover {
+  border-left-color: var(--dup-group-color, var(--yellow));
+}
+
+/* ── Python ↔ Venv 双向关联 ─────────────────────────────────────── */
+
+.linked-venv-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+
+.linked-venv-count:hover {
+  background: var(--surface);
+}
+
+.linked-venv-count--expanded {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.linked-venv-count__arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.linked-venv-row td {
+  padding: 0;
+  border-bottom: 2px solid var(--accent);
+}
+
+.linked-venv-container {
+  padding: 12px 14px 14px;
+  background: var(--surface);
+}
+
+.linked-venv-container .sub-table {
+  width: 100%;
+}
+
+.home-python-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.home-python-link:hover {
+  text-decoration: underline;
+}
+
+.home-python-unknown {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 高亮闪烁 — 从 venv 跳转到 Python 行时使用 */
+.data-table__row--highlight {
+  animation: highlightFlash 1.5s ease;
+}
+
+@keyframes highlightFlash {
+  0%   { background: #FFF0F0; }
+  100% { background: transparent; }
+}
+
+/* ── Onboarding 遮罩 ─────────────────────────────────────────────── */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  cursor: default;
+  pointer-events: all;
+}
+
+.onboarding-overlay[hidden] {
+  display: none;
+}
+
+/* ── Onboarding Tooltip ───────────────────────────────────────────── */
+
+.onboarding-tooltip {
+  position: fixed;
+  z-index: 301;
+  width: 400px;
+  max-width: calc(100vw - 28px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+}
+
+.onboarding-tooltip__step {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.onboarding-tooltip__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.onboarding-tooltip__desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.onboarding-tooltip__desc code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--surface);
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+
+.onboarding-tooltip__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.onboarding-tooltip__actions .btn {
+  min-width: 80px;
+  justify-content: center;
+}
+
+/* ── Onboarding 目标高亮 — 脉冲边框 ──────────────────────────────── */
+
+.onboarding-highlight {
+  position: relative;
+  z-index: 301 !important;
+  box-shadow: 0 0 0 3px var(--accent);
+  animation: onboardPulse 2s ease-in-out infinite;
+}
+
+@keyframes onboardPulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent); }
+  50%      { box-shadow: 0 0 0 6px rgba(228, 0, 43, 0.3); }
+}
+
+/* 安全徽章高亮时级别边框会冲突 — 保留安全色边框，外层叠加脉冲 */
+.safety-badge.onboarding-highlight {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* ── 「?」帮助按钮 ────────────────────────────────────────────────── */
+
+#btn-help {
+  font-weight: 700;
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+}
