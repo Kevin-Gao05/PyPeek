@@ -21,3 +21,4 @@ Desktop.ini
 # PyPeek
 *.log
 tests/_test_envs/
+.scratch/
