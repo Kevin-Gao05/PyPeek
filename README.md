@@ -148,7 +148,8 @@ static/
 
 ## 已知限制
 
-- 仅支持 Windows（pywebview 桌面窗口），Linux/macOS 仅可本地调试 Web 界面
+- **Linux**：需要 GTK3 + WebKit2GTK 系统库（启动脚本自动检测），中文需 `fonts-noto-cjk`
+- **macOS**：pywebview 依赖系统 WebKit（已内置），Homebrew/framework Python 路径检测依赖 `os.path.exists` 预检
 - 不检查项目级 `requirements.txt` 或 `pyproject.toml` 中的依赖声明
 - 卸载仅执行 `pip uninstall`，不清理用户脚本或配置文件
 - Conda 环境发现暂未实现（`scanner/conda.py` 为占位）
@@ -156,6 +157,24 @@ static/
 - 无深色/浅色主题切换（当前为 Swiss 浅色主题）
 
 ## 更新日志
+
+### V1.3.0 (2026-08-06)
+
+跨平台支持 — scanner 层 Linux/macOS 实现 + Onboarding 流程修复。
+
+**新增**
+- Linux/macOS Python 发现 — `_scan_common_paths()` 通过 glob 扫描 10+ 常见路径（系统、pyenv、conda、Homebrew、Framework），符号链接去重
+- 来源标签扩展 — pyenv、homebrew、python.org (macOS) 来源识别
+- `start.sh` — Linux/macOS 启动脚本，含 GTK3/WebKit2GTK/CJK 字体系统依赖自动检测
+- pyenv venv 扫描根 — `~/.pyenv/versions` 加入虚拟环境搜索路径
+
+**修复**
+- Onboarding Step 3/4 竞态 — `ensureFirstPythonExpanded()` 共享 Promise 消除包列表异步加载与教程 tooltip 的时序冲突
+- 卸载弹窗被教程遮罩遮挡 — modal z-index 100→400，卸载时自动关闭教程
+- `doShow()` 异步回调泄露 — 用户在 `beforeShow` 期间点击跳过不再导致 tooltip 闪现
+
+**改进**
+- `_deduplicate_paths()` 提取 — `discover_pythons` 和 `_scan_common_paths` 的去重逻辑合并为一个共享函数
 
 ### V1.2.0 (2026-08-05)
 

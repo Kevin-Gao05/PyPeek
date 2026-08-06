@@ -145,7 +145,8 @@ Click "Uninstall"
 
 ## Known Limitations
 
-- Windows only (pywebview desktop window). Linux/macOS can run the web interface in dev mode.
+- **Linux**: Requires GTK3 + WebKit2GTK system libraries (launch script auto-detects). Chinese text requires `fonts-noto-cjk`.
+- **macOS**: pywebview relies on built-in system WebKit. Homebrew/framework Python path detection uses `os.path.exists` pre-check.
 - Does not check project-level `requirements.txt` or `pyproject.toml` for dependency declarations.
 - Uninstall only runs `pip uninstall` — does not clean up user scripts or config files.
 - Conda environment discovery not yet implemented (`scanner/conda.py` is a placeholder).
@@ -153,6 +154,24 @@ Click "Uninstall"
 - No dark/light theme toggle (currently Swiss light theme).
 
 ## Changelog
+
+### V1.3.0 (2026-08-06)
+
+Cross-platform support — Linux/macOS scanner layer + Onboarding flow fixes.
+
+**Additions**
+- Linux/macOS Python discovery — `_scan_common_paths()` scans 10+ common paths via glob (system, pyenv, conda, Homebrew, Framework), with symlink dedup
+- Extended source labels — pyenv, homebrew, python.org (macOS) source identification
+- `start.sh` — Linux/macOS launcher with automatic GTK3/WebKit2GTK/CJK font system dependency detection
+- pyenv venv scan roots — `~/.pyenv/versions` added to virtual environment search paths
+
+**Fixes**
+- Onboarding Step 3/4 race condition — `ensureFirstPythonExpanded()` shared Promise eliminates timing conflicts between async package loading and tutorial tooltip
+- Uninstall modal blocked by onboarding overlay — modal z-index 100→400, onboarding auto-dismisses on uninstall
+- `doShow()` async callback leak — clicking skip during `beforeShow` no longer causes tooltip flash
+
+**Improvements**
+- `_deduplicate_paths()` extraction — dedup logic shared between `discover_pythons` and `_scan_common_paths`
 
 ### V1.2.0 (2026-08-05)
 
