@@ -8,12 +8,25 @@ Python 安装发现模块。
 import os
 import sys
 import json
+import glob
 import shutil
 import subprocess
 import platform
 from pathlib import Path
 
 IS_WINDOWS = platform.system() == "Windows"
+
+
+def _deduplicate_paths(paths):
+    """Deduplicate executable paths by resolving symlinks to canonical form."""
+    seen = set()
+    result = []
+    for p in paths:
+        key = os.path.normcase(os.path.realpath(p))
+        if key not in seen and os.path.isfile(p):
+            seen.add(key)
+            result.append(p)
+    return result
 
 
 def discover_pythons(on_progress=None):
@@ -24,7 +37,6 @@ def discover_pythons(on_progress=None):
     返回: [{"path": "...", "version": "...", "source": "...", ...}, ...]
     """
     results = []
-    seen = set()
 
     # ── 阶段 A：快速扫描 ───────────────────────────────────────────
     _report(on_progress, "pythons", {
@@ -37,14 +49,11 @@ def discover_pythons(on_progress=None):
 
     if IS_WINDOWS:
         exe_paths.extend(_scan_registry())
+    else:
+        exe_paths.extend(_scan_common_paths())
 
-    # 去重
-    unique = []
-    for p in exe_paths:
-        norm = os.path.normcase(os.path.normpath(p))
-        if norm not in seen and os.path.isfile(p):
-            seen.add(norm)
-            unique.append(p)
+    # 去重（resolve symlinks to avoid e.g. python3 and python3.14 duplicates）
+    unique = _deduplicate_paths(exe_paths)
 
     # 逐个获取详情
     total = len(unique)
@@ -138,6 +147,45 @@ def _scan_registry():
     except ImportError:
         pass
     return found
+
+
+def _scan_common_paths():
+    """Linux/macOS: 在常见安装位置搜索 Python 可执行文件。"""
+    found = []
+    home = os.path.expanduser("~")
+
+    patterns = [
+        # 系统级 Python
+        "/usr/bin/python*",
+        "/usr/local/bin/python*",
+        "/usr/lib/python*",
+        # pyenv
+        os.path.join(home, ".pyenv", "versions", "*", "bin", "python*"),
+        # conda
+        os.path.join(home, "anaconda3", "bin", "python*"),
+        os.path.join(home, "miniconda3", "bin", "python*"),
+        "/opt/conda/bin/python*",
+    ]
+
+    # macOS 特有路径（存在性检查）
+    mac_paths = [
+        "/Library/Frameworks/Python.framework/Versions/*/bin/python*",
+        "/opt/homebrew/bin/python*",
+        "/usr/local/opt/python*/bin/python*",
+    ]
+    if os.path.exists("/Library") or os.path.exists("/opt/homebrew"):
+        patterns.extend(mac_paths)
+
+    all_found = []
+    for pattern in patterns:
+        try:
+            for path in glob.glob(pattern):
+                if os.path.isfile(path):
+                    all_found.append(path)
+        except Exception:
+            pass
+
+    return _deduplicate_paths(all_found)
 
 
 # ── 信息提取 ──────────────────────────────────────────────────────────
@@ -250,7 +298,16 @@ def _detect_source(python_path):
         return "python.org"
     if IS_WINDOWS:
         return "unknown"
-    # Linux/macOS 系统级 Python
+    # Linux/macOS
+    if "/.pyenv/versions/" in lower:
+        return "pyenv"
+    # macOS Homebrew (必须在 framework 之前检查，因为 /usr/local 可能重叠)
+    if "/opt/homebrew/" in lower or "/usr/local/opt/" in lower or "/usr/local/cellar/" in lower:
+        return "homebrew"
+    # macOS python.org 安装器
+    if "/library/frameworks/python.framework/" in lower:
+        return "python.org"
+    # 系统级 Python
     if lower.startswith("/usr/bin/") or lower.startswith("/usr/local/bin/"):
         return "system"
     return "unknown"

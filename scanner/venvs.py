@@ -124,6 +124,10 @@ def _get_scan_roots():
         home = os.path.expanduser("~")
         if os.path.isdir(home):
             roots.append(home)
+        # pyenv 管理的 Python 版本目录
+        pyenv_versions = os.path.join(home, ".pyenv", "versions")
+        if os.path.isdir(pyenv_versions):
+            roots.append(pyenv_versions)
         # 常见项目目录
         for d in ["/opt", "/srv"]:
             if os.path.isdir(d):

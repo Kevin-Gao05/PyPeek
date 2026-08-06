@@ -2,13 +2,13 @@
 
 [English](README.en.md) | 中文
 
-Python 环境桌面浏览器：双击即开，一眼看全 Windows 机器上所有 Python 安装、虚拟环境和 pip 缓存。安全清理，不用碰终端。
+Python 环境桌面浏览器：双击即开，一眼看全本机所有 Python 安装、虚拟环境和 pip 缓存。安全清理，不用碰终端。支持 Windows、Linux、macOS。
 
 > 目前处于测试阶段，部分功能未实现。
 
 ## 功能概览
 
-- **Python 发现**：PATH 扫描 + Windows 注册表双重查找，识别 python.org、Microsoft Store、Conda 等安装来源，同版本多实例自动标记重复
+- **Python 发现**：PATH 扫描 + Windows 注册表 / Linux & macOS 常见路径双重查找，识别 python.org、Microsoft Store、Conda、pyenv、Homebrew 等安装来源，同版本多实例自动标记重复
 - **虚拟环境发现**：全盘搜索 `pyvenv.cfg`，列出路径、Python 版本、磁盘占用、包数量、最后修改时间，自动跳过系统目录
 - **Python ↔ Venv 双向关联**：Python 表展示关联 venv 数量，点击展开子列表跳转 venv 标签页；Venv 表来源 Python 可点击跳转并高亮
 - **重复环境识别**：Venv 标签页内「可能重复」子标签，同组环境用 8 色调色板彩色左边框标记，支持展开查看差异
@@ -23,7 +23,7 @@ Python 环境桌面浏览器：双击即开，一眼看全 Windows 机器上所�
 
 ## 项目运行截图
 
-> 当前版本仅支持 Windows 平台及 pip 包管理。
+> 当前版本支持 Windows、Linux、macOS 平台及 pip 包管理。
 
 ![主界面](docs/screenshots/01-overview.png)
 *Python 安装发现 — Swiss 设计系统，统计卡片 + 数据表格*
@@ -43,7 +43,9 @@ Python 3.10+ 标准库（`http.server.ThreadingHTTPServer`）+ pywebview 桌面�
 
 ## 快速开始
 
-**要求**：Windows 10 或 11，Python 3.10 以上已安装。
+**要求**：Python 3.10 以上已安装。
+
+### Windows
 
 ```bat
 git clone git@github.com:Kevin-Gao05/PyPeek.git
@@ -51,9 +53,21 @@ cd PyPeek
 start.bat
 ```
 
+### Linux / macOS
+
+```bash
+git clone git@github.com:Kevin-Gao05/PyPeek.git
+cd PyPeek
+bash start.sh
+```
+
 首次运行自动安装 `pywebview`，随后弹出桌面窗口。
 
-**Linux/macOS 本地调试（无 GUI）**：
+**Linux 用户注意**：需要 GTK3 和 WebKit2GTK 系统库，启动脚本会自动检测，缺失时给出安装命令。中文显示需安装 `fonts-noto-cjk`（或等效中文字体）。
+
+**macOS 用户注意**：pywebview 依赖系统自带的 WebKit，无需额外安装。
+
+**本地调试（无 GUI）**：
 
 ```bash
 python3 -c "from server.app import create_app; create_app().run()"
@@ -65,9 +79,13 @@ python3 -c "from server.app import create_app; create_app().run()"
 ```
 main.py                   入口：启动 HTTP 服务 + pywebview 窗口
 start.bat                 Windows 双击启动脚本
+start.sh                  Linux/macOS 启动脚本
 scanner/
-  pythons.py              Python 安装发现（PATH + 注册表）
+  pythons.py              Python 安装发现（PATH + 注册表 / 常见路径 glob）
   venvs.py                虚拟环境发现（pyvenv.cfg 全盘搜索）
+  pip_cache.py            pip 缓存分析与分类
+  site_packages.py        包详情、安全分级、卸载执行
+  cache.py                本地扫描结果缓存
   pip_cache.py            pip 缓存分析与分类
   site_packages.py        包详情、安全分级、卸载执行
   cache.py                本地扫描结果缓存

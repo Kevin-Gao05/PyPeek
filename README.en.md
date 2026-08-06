@@ -2,13 +2,13 @@
 
 [中文](README.md) | English
 
-PyPeek — a desktop browser for your Python environments. Double-click to open, see every Python installation, virtual environment, and pip cache on your Windows machine at a glance. Clean up safely, no terminal needed.
+PyPeek — a desktop browser for your Python environments. Double-click to open, see every Python installation, virtual environment, and pip cache on your machine at a glance. Clean up safely, no terminal needed. Supports Windows, Linux, and macOS.
 
 > Currently in beta — some features are still in progress.
 
 ## Features
 
-- **Python Discovery** — PATH scanning + Windows Registry lookup. Identifies installs from python.org, Microsoft Store, and Conda. Flags duplicate versions across multiple locations.
+- **Python Discovery** — PATH scanning + Windows Registry / Linux & macOS common paths. Identifies installs from python.org, Microsoft Store, Conda, pyenv, and Homebrew. Flags duplicate versions across multiple locations.
 - **Virtual Environment Discovery** — Full-disk search for `pyvenv.cfg`. Lists path, Python version, disk usage, package count, and last modified time. Skips system directories automatically.
 - **Python ↔ Venv Bidirectional Linking** — Python table shows linked venv count, click to expand sub-list and jump to venv tab. Venv table source Python is clickable with highlight flash on jump.
 - **Duplicate Environment Detection** — "Possible Duplicates" subtab in Venv tab. Same-group environments marked with color-coded left borders (8-color palette). Expand to compare differences.
@@ -23,7 +23,7 @@ PyPeek — a desktop browser for your Python environments. Double-click to open,
 
 ## Screenshots
 
-> Windows only for now.
+> Supports Windows, Linux, and macOS.
 
 ![Main interface](docs/screenshots/01-overview.png)
 *Python discovery — Swiss design system, stat cards + data table*
@@ -43,7 +43,9 @@ Python 3.10+ standard library (`http.server.ThreadingHTTPServer`) + pywebview de
 
 ## Quick Start
 
-**Requirements**: Windows 10 or 11, Python 3.10+ installed.
+**Requirements**: Python 3.10+ installed.
+
+### Windows
 
 ```bat
 git clone git@github.com:Kevin-Gao05/PyPeek.git
@@ -51,9 +53,21 @@ cd PyPeek
 start.bat
 ```
 
+### Linux / macOS
+
+```bash
+git clone git@github.com:Kevin-Gao05/PyPeek.git
+cd PyPeek
+bash start.sh
+```
+
 First run auto-installs `pywebview`, then opens the desktop window.
 
-**Linux/macOS (dev mode, no GUI)**:
+**Linux users**: GTK3 and WebKit2GTK system libraries required. The launch script auto-detects missing dependencies and shows install commands. Chinese text requires `fonts-noto-cjk` (or equivalent CJK fonts).
+
+**macOS users**: pywebview uses the built-in system WebKit — no extra dependencies needed.
+
+**Dev mode (no GUI)**:
 
 ```bash
 python3 -c "from server.app import create_app; create_app().run()"
@@ -65,8 +79,9 @@ python3 -c "from server.app import create_app; create_app().run()"
 ```
 main.py                   Entry point: starts HTTP server + pywebview window
 start.bat                 Windows one-click launcher
+start.sh                  Linux/macOS launcher
 scanner/
-  pythons.py              Python install discovery (PATH + registry)
+  pythons.py              Python install discovery (PATH + registry / common paths)
   venvs.py                Virtual environment discovery (pyvenv.cfg full-disk search)
   pip_cache.py            pip cache analysis & categorization
   site_packages.py        Package details, safety classification, uninstall

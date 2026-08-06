@@ -137,13 +137,19 @@ const ONBOARDING_STEPS = [
   },
   {
     title: "展开查看包列表",
-    desc: "点击 Python 或虚拟环境行，即可查看该环境已安装的所有包。<br>下方高亮的是第一行，试试点击它。",
-    target: "#panel-pythons .data-table__row--expandable:first-child",
+    desc: "已自动展开第一个 Python 环境的包列表。<br>这里展示该环境下所有已安装的包，包含版本号和安全等级。",
+    target: "#panel-packages .sub-table__row:first-child, #panel-packages .data-table tbody tr:first-child",
     position: "below",
     prev: true,
     next: true,
     skip: true,
     finish: false,
+    beforeShow() {
+      return ensureFirstPythonExpanded().then(() => {
+        // 等一帧让 DOM 稳定，防止 tooltip 定位偏移
+        return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      });
+    },
   },
   {
     title: "卸载前看清安全等级",
@@ -155,13 +161,13 @@ const ONBOARDING_STEPS = [
     skip: false,
     finish: true,
     beforeShow() {
+      // 包列表肯定已加载（Step 3 的 ensureFirstPythonExpanded 已 resolve）
+      // 但安全标签可能因 tab 切换等原因还未渲染，短轮询一下
       return new Promise((resolve) => {
-        const firstRow = document.querySelector("#panel-pythons .data-table__row--expandable");
-        if (firstRow) selectPythonRow(firstRow);
         let ticks = 0;
         const check = setInterval(() => {
           const badge = document.querySelector("#panel-packages .safety-badge");
-          if (badge || ticks >= 30) { clearInterval(check); resolve(); }
+          if (badge || ticks >= 20) { clearInterval(check); resolve(); }
           ticks++;
         }, 100);
       });
@@ -177,6 +183,27 @@ const ONBOARDING_STEPS = [
 let onboardingActive = false;
 let onboardingStep = -1;
 let _onboardingScanDone = false;
+let _packagesPreloadPromise = null;
+
+function ensureFirstPythonExpanded() {
+  if (_packagesPreloadPromise) return _packagesPreloadPromise;
+
+  _packagesPreloadPromise = new Promise((resolve) => {
+    const firstRow = document.querySelector("#panel-pythons .data-table__row--expandable");
+    if (!firstRow) { resolve(); return; }
+    selectPythonRow(firstRow);
+
+    let ticks = 0;
+    const check = setInterval(() => {
+      const done = document.querySelector("#panel-packages table")
+                || document.querySelector("#panel-packages .sub-table__row")
+                || document.querySelector("#panel-packages .empty-state:not([hidden])");
+      if (done || ticks >= 50) { clearInterval(check); resolve(); }
+      ticks++;
+    }, 100);
+  });
+  return _packagesPreloadPromise;
+}
 
 function showOnboardingStep(n) {
   // 扫描步骤：如果扫描已完成则直接跳过（根据方向决定跳去哪）
@@ -223,6 +250,7 @@ function showOnboardingStep(n) {
   overlay.onclick = (e) => { if (e.target === overlay) e.stopPropagation(); };
 
   const doShow = () => {
+    if (!onboardingActive) return;  // 用户在 beforeShow 异步期间跳过了
     highlightOnboardingTarget(step.target);
     overlay.hidden = false;
     requestAnimationFrame(() => {
@@ -250,6 +278,7 @@ function hideOnboarding() {
   onboardingActive = false;
   needsOnboarding = false;
   _onboardingScanDone = false;
+  _packagesPreloadPromise = null;
   document.getElementById("onboarding-overlay").hidden = true;
   clearOnboardingHighlight();
   hideScanBar();
@@ -425,8 +454,11 @@ function connectSSE(scanId) {
     // ── Onboarding: 扫描完成通知 + 自动推进 ────────────────────────
     _onboardingScanDone = true;
     if (onboardingActive && onboardingStep === 2) {
-      // 用户在「扫描中」步骤，自动跳到下一步
-      setTimeout(() => showOnboardingStep(3), 500);
+      // 预加载第一个 Python 环境的包列表，加载完毕后再推进到 Step 3
+      ensureFirstPythonExpanded().then(() => {
+        if (!onboardingActive) return;
+        setTimeout(() => showOnboardingStep(3), 200);
+      });
     }
     if (!onboardingActive) {
       setTimeout(hideScanBar, 1500);
@@ -1463,6 +1495,9 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function startUninstallFlow(pythonPath, packageName) {
+  // 如果正在教程中，先关闭教程让用户能操作弹窗
+  if (onboardingActive) hideOnboarding();
+
   // 先显示弹窗（loading 状态），避免等待 API 的延迟感
   document.getElementById("modal-icon").textContent = "";
   document.getElementById("modal-title").textContent = "正在检查…";
